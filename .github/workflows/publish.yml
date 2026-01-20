@@ -3,31 +3,30 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - 'v*'  # Triggered on version tags like v0.1.0, v0.2.0, etc.
+      - 'v*'  # Se déclenche sur v0.1.0, v0.2.0, etc.
 
 permissions:
   contents: read
-  id-token: write  # Required for Trusted Publisher
+  id-token: write  # ← ESSENTIEL pour Trusted Publisher
 
 jobs:
   publish:
     runs-on: ubuntu-latest
-    environment: release  # Optional: adds manual approval requirement
-    
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v3
-    
+
     - name: Set up Python
       uses: actions/setup-python@v4
       with:
         python-version: "3.11"
-    
+
     - name: Install Poetry
       run: |
         python -m pip install --upgrade pip
         pip install poetry
-    
+
     - name: Verify version matches tag
       run: |
         TAG_VERSION=${GITHUB_REF#refs/tags/v}
@@ -35,27 +34,18 @@ jobs:
         echo "Tag version: $TAG_VERSION"
         echo "Poetry version: $POETRY_VERSION"
         if [ "$TAG_VERSION" != "$POETRY_VERSION" ]; then
-          echo "❌ Error: Tag version ($TAG_VERSION) does not match pyproject.toml version ($POETRY_VERSION)"
+          echo "❌ Error: Version mismatch"
           exit 1
         fi
         echo "✅ Version match confirmed"
-    
+
     - name: Build package
       run: |
         poetry build
-        ls -la dist/
-    
-    - name: Publish to PyPI (with token)
-      if: ${{ secrets.PYPI_API_TOKEN }}
-      env:
-        POETRY_PYPI_TOKEN_PYPI: ${{ secrets.PYPI_API_TOKEN }}
-      run: |
-        poetry publish
-    
-    - name: Publish to PyPI (Trusted Publisher)
-      if: ${{ !secrets.PYPI_API_TOKEN }}
+        ls -lh dist/
+
+    - name: Publish to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
       with:
         packages-dir: dist/
-        skip-existing: false
-        verbose: true
+        print-hash: true
