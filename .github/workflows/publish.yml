@@ -3,11 +3,13 @@ name: Publish to PyPI
 on:
   push:
     tags:
-      - 'v*'  # Se déclenche sur v0.1.0, v0.2.0, etc.
+      - 'v*'
+
+  workflow_dispatch:
 
 permissions:
   contents: read
-  id-token: write  # ← ESSENTIEL pour Trusted Publisher
+  id-token: write
 
 jobs:
   publish:
