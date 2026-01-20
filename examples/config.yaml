@@ -1,0 +1,90 @@
+application:
+  name: "Document Search Platform"
+  version: "2.1.0"
+  debug: false
+
+filters:
+  - name: "document_type"
+    type: "multiselect"
+    label: "Document Type"
+    enabled: true
+    values:
+      - "PDF"
+      - "Word"
+      - "Excel"
+      - "PowerPoint"
+      - "Text"
+  
+  - name: "date_range"
+    type: "daterange"
+    label: "Date Range"
+    enabled: true
+    values:
+      - "last_7_days"
+      - "last_30_days"
+      - "last_90_days"
+      - "custom"
+  
+  - name: "author"
+    type: "select"
+    label: "Author"
+    enabled: true
+    values:
+      - "John Doe"
+      - "Jane Smith"
+      - "Bob Johnson"
+      - "Alice Williams"
+  
+  - name: "category"
+    type: "multiselect"
+    label: "Category"
+    enabled: true
+    values:
+      - "Finance"
+      - "Legal"
+      - "HR"
+      - "Marketing"
+      - "Technical"
+
+card:
+  - name: "title"
+    label: "Title"
+    type: "text"
+    visible: true
+  
+  - name: "author"
+    label: "Author"
+    type: "text"
+    visible: true
+  
+  - name: "date"
+    label: "Created Date"
+    type: "date"
+    visible: true
+  
+  - name: "document_type"
+    label: "Type"
+    type: "badge"
+    visible: true
+  
+  - name: "category"
+    label: "Category"
+    type: "tag"
+    visible: true
+  
+  - name: "summary"
+    label: "Summary"
+    type: "text"
+    visible: false
+  
+  - name: "page_count"
+    label: "Pages"
+    type: "number"
+    visible: true
+
+display:
+  theme: "dark"
+  items_per_page: 20
+  show_toolbar: true
+  enable_preview: true
+  highlight_search_terms: true
