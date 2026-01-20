@@ -2,9 +2,8 @@
 Tests for base configuration classes
 """
 
-import pytest
 import pathlib
-from configplusplus.base import ConfigMeta, ConfigBase
+from configplusplus.base import ConfigBase
 
 
 class SampleConfig(ConfigBase):

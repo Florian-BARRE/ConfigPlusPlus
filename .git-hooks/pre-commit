@@ -6,6 +6,7 @@ Install: Copy to .git/hooks/pre-commit and make executable
 
 import subprocess
 import sys
+from pathlib import Path
 
 def main():
     """Run Black on staged Python files."""

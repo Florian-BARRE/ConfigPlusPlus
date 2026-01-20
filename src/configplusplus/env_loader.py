@@ -4,8 +4,6 @@ Environment variable based configuration loader
 
 from typing import Any
 from configplusplus.base import ConfigBase
-from configplusplus.utils import env, env_optional
-import pathlib
 
 
 class EnvConfigLoader(ConfigBase):
