@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "configplusplus"
-version = "0.1.0"
+version = "0.1.1"
 description = "A powerful configuration management library with beautiful display, environment variables and YAML support"
 authors = ["Florian BARRE"]
 readme = "README.md"

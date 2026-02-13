@@ -373,8 +373,8 @@ for processor in sorted(config.processors, key=lambda x: x.priority):
 
 ## Documentation
 
-- **Quick Reference**: See [REFERENCE.md](REFERENCE.md) for a cheat sheet
-- **Detailed Guide**: See [USAGE.md](USAGE.md) for comprehensive documentation
+- **Quick Reference**: See [REFERENCE.md](docs/REFERENCE.md) for a cheat sheet
+- **Detailed Guide**: See [USAGE.md](docs/USAGE.md) for comprehensive documentation
 - **Examples**: Check the `examples/` directory for working code samples
 
 ## Links

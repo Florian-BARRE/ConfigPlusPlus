@@ -2,29 +2,38 @@
 Utility functions for configuration management
 """
 
-from typing import Any, TypeVar
+import pathlib
+from typing import Any
 from dotenv import load_dotenv
 from loggerplusplus import loggerplusplus
 from loggerplusplus import formats as lpp_formats
 import sys
 import os
 
-T = TypeVar("T")
 
-
-def safe_load_envs(env_path: str = ".env", verbose: bool = True) -> bool:
+def safe_load_envs(path: str | pathlib.Path, verbose: bool = True) -> bool:
     """
-    Load environment variables from .env file with detailed logging.
+    Load all *.env files found at the given path (file or directory)
+    with detailed logging.
 
     Args:
-        env_path: Path to the .env file (default: ".env")
+        path: Path to a directory containing *.env files
+              OR path to a specific .env file.
         verbose: Whether to log loading information (default: True)
 
     Returns:
-        True if file was loaded successfully, False otherwise
+        True if at least one environment file was successfully loaded,
+        False otherwise.
 
     Example:
-        >>> safe_load_envs()
+        > safe_load_envs("./config")
+        *.env files found: [PosixPath('config/.env'), PosixPath('config/dev.env')]
+        ✅ Loaded environment file: config/.env
+        ✅ Loaded environment file: config/dev.env
+        True
+
+        > safe_load_envs(".env")
+        *.env files found: [PosixPath('.env')]
         ✅ Loaded environment file: .env
         True
     """
@@ -35,24 +44,44 @@ def safe_load_envs(env_path: str = ".env", verbose: bool = True) -> bool:
             format=lpp_formats.ShortFormat(),
         )
         env_logger = loggerplusplus.bind(identifier="ENV_LOADER")
+    else:
+        env_logger = None
 
-    # Try with leading slash first (absolute path)
-    success = load_dotenv(f"/{env_path}")
+    path_obj = pathlib.Path(path)
+    loaded_any = False
 
-    if success and verbose:
-        env_logger.info(f"✅ Loaded environment file: /{env_path}")
-    elif not success:
-        # Try without leading slash (relative path)
-        success = load_dotenv(env_path)
-        if success and verbose:
-            env_logger.info(f"✅ Loaded environment file: {env_path}")
-        elif verbose:
-            env_logger.info(f"ℹ️ Environment file not found: {env_path}")
+    # Collect all *.env files
+    if path_obj.is_dir():
+        env_files = sorted(path_obj.glob("*.env"))
+    elif path_obj.is_file() and path_obj.suffix == ".env":
+        env_files = [path_obj]
+    else:
+        env_files = []
+
+    if verbose:
+        env_logger.info(f"*.env files found: {env_files}")
+
+    # Load all found *.env files
+    if not env_files:
+        if verbose:
+            env_logger.warning(f"ℹ️ No *.env files found at path: {path_obj}")
+    else:
+        for env_file in env_files:
+            success = load_dotenv(env_file)
+            if success:
+                if verbose:
+                    env_logger.info(f"✅ Loaded environment file: {env_file}")
+                loaded_any = True
+            else:
+                if verbose:
+                    env_logger.warning(
+                        f"⚠️ Failed to load environment file: {env_file}"
+                    )
 
     if verbose:
         loggerplusplus.remove()
 
-    return success
+    return loaded_any
 
 
 def env(
@@ -74,13 +103,13 @@ def env(
         RuntimeError: If required variable is missing and no default provided
 
     Examples:
-        >>> env("DATABASE_PORT", cast=int, default=5432)
+        > env("DATABASE_PORT", cast=int, default=5432)
         5432
 
-        >>> env("DEBUG_MODE", cast=bool, default=False)
+        > env("DEBUG_MODE", cast=bool, default=False)
         False
 
-        >>> env("API_KEY")  # Required by default
+        > env("API_KEY")  # Required by default
         RuntimeError: missing required env var API_KEY
     """
     val = os.getenv(key, default)
@@ -112,7 +141,7 @@ def env_optional(key: str, *, default: Any = None, cast: type = str) -> Any:
         The environment variable value, cast to the specified type, or default
 
     Example:
-        >>> env_optional("OPTIONAL_FEATURE", cast=bool, default=False)
+        > env_optional("OPTIONAL_FEATURE", cast=bool, default=False)
         False
     """
     return env(key, default=default, cast=cast, required=False)
