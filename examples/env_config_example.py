@@ -3,7 +3,7 @@ Example usage of EnvConfigLoader
 """
 
 import pathlib
-import sys
+
 from configplusplus import EnvConfigLoader, env, safe_load_envs
 
 # Load environment variables from .env file

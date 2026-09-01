@@ -44,13 +44,13 @@ class AppConfig(EnvConfigLoader):
     # Required variables
     DATABASE_HOST = env("DATABASE_HOST")
     DATABASE_PORT = env("DATABASE_PORT", cast=int)
-    
+
     # Optional with defaults
     DEBUG_MODE = env("DEBUG_MODE", cast=bool, default=False)
-    
+
     # Paths
     DATA_DIR = env("DATA_DIR", cast=pathlib.Path)
-    
+
     # Secrets (automatically masked in output)
     SECRET_API_KEY = env("SECRET_API_KEY")
 
@@ -89,10 +89,10 @@ class UiConfig(YamlConfigLoader):
         # Parse the loaded YAML data
         self.app_name = self._raw_config["application"]["name"]
         self.theme = self._raw_config["display"]["theme"]
-        
+
         # Parse nested structures
         self.filters = [
-            FilterConfig(**f) 
+            FilterConfig(**f)
             for f in self._raw_config["filters"]
         ]
 
@@ -197,7 +197,7 @@ config_dict = config.to_dict()
 ```python
 class ValidatedConfig(EnvConfigLoader):
     DATABASE_PORT = env("DATABASE_PORT", cast=int)
-    
+
     @classmethod
     def validate(cls) -> None:
         super().validate()
@@ -237,7 +237,7 @@ class AppConfig(EnvConfigLoader):
     # From environment
     SECRET_API_KEY = env("SECRET_API_KEY")
     DATABASE_HOST = env("DATABASE_HOST")
-    
+
     # Load YAML for features
     @classmethod
     def load_features(cls) -> None:
@@ -302,23 +302,23 @@ class APIConfig(EnvConfigLoader):
     # Server
     HOST = env("HOST", default="0.0.0.0")
     PORT = env("PORT", cast=int, default=8000)
-    
+
     # Database
     DATABASE_URL = env("DATABASE_URL")
     DATABASE_POOL_SIZE = env("DATABASE_POOL_SIZE", cast=int, default=10)
-    
+
     # Redis
     REDIS_HOST = env("REDIS_HOST", default="localhost")
     REDIS_PORT = env("REDIS_PORT", cast=int, default=6379)
-    
+
     # Security
     SECRET_JWT_KEY = env("SECRET_JWT_KEY")
     TOKEN_EXPIRE_MINUTES = env("TOKEN_EXPIRE_MINUTES", cast=int, default=60)
-    
+
     # Features
     ENABLE_CORS = env("ENABLE_CORS", cast=bool, default=True)
     ENABLE_DOCS = env("ENABLE_DOCS", cast=bool, default=False)
-    
+
     @classmethod
     def validate(cls) -> None:
         if cls.PORT < 1024 or cls.PORT > 65535:
@@ -353,11 +353,11 @@ class PipelineConfig(YamlConfigLoader):
             ProcessorConfig(**p)
             for p in self._raw_config["processors"]
         ]
-        
+
         # Parse paths
         self.input_dir = pathlib.Path(self._raw_config["paths"]["input"])
         self.output_dir = pathlib.Path(self._raw_config["paths"]["output"])
-        
+
         # Parse settings
         self.batch_size = self._raw_config["settings"]["batch_size"]
         self.max_workers = self._raw_config["settings"]["max_workers"]

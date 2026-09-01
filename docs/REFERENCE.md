@@ -19,22 +19,22 @@ safe_load_envs()
 class Config(EnvConfigLoader):
     # String (default)
     HOST = env("HOST")
-    
+
     # With type casting
     PORT = env("PORT", cast=int)
     DEBUG = env("DEBUG", cast=bool)
     RATE = env("RATE", cast=float)
     DATA_DIR = env("DATA_DIR", cast=pathlib.Path)
-    
+
     # With defaults
     TIMEOUT = env("TIMEOUT", cast=int, default=30)
-    
+
     # Optional
     OPTIONAL = env("OPTIONAL", required=False, default=None)
-    
+
     # Secrets (auto-masked)
     SECRET_API_KEY = env("SECRET_API_KEY")
-    
+
     # Validation
     @classmethod
     def validate(cls) -> None:
@@ -63,7 +63,7 @@ class Config(YamlConfigLoader):
     def __post_init__(self) -> None:
         # Simple values
         self.app_name = self._raw_config["app"]["name"]
-        
+
         # Structured data
         self.features: List[Feature] = [
             Feature(**f) for f in self._raw_config["features"]
@@ -145,7 +145,7 @@ env("PATH", cast=pathlib.Path)  # "/data" → Path("/data")
 ```python
 class Config(EnvConfigLoader):
     PORT = env("PORT", cast=int)
-    
+
     @classmethod
     def validate(cls) -> None:
         super().validate()
