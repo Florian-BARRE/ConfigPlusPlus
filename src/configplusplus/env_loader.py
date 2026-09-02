@@ -3,6 +3,7 @@ Environment variable based configuration loader
 """
 
 from typing import Any
+
 from configplusplus.base import ConfigBase
 
 

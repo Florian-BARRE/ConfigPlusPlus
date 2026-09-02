@@ -2,8 +2,9 @@
 YAML file based configuration loader
 """
 
-from typing import Any, Dict
 import pathlib
+from typing import Any
+
 import yaml
 from loggerplusplus import loggerplusplus
 
@@ -89,7 +90,7 @@ class YamlConfigLoader:
         # Call the post-init hook for custom parsing
         self.__post_init__()
 
-    def _load_yaml(self) -> Dict[str, Any]:
+    def _load_yaml(self) -> dict[str, Any]:
         """
         Load and parse the YAML configuration file.
 
@@ -100,7 +101,7 @@ class YamlConfigLoader:
             yaml.YAMLError: If the YAML file is invalid
         """
         try:
-            with open(self.config_path, "r", encoding="utf-8") as f:
+            with open(self.config_path, encoding="utf-8") as f:
                 return yaml.safe_load(f)
         except yaml.YAMLError as e:
             self.logger.error(f"Failed to parse YAML file: {e}")
@@ -177,7 +178,7 @@ class YamlConfigLoader:
         except (KeyError, TypeError):
             return False
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         Convert config to dictionary, excluding private/special attributes.
 

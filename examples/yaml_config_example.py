@@ -2,8 +2,8 @@
 Example usage of YamlConfigLoader
 """
 
-from typing import List
 from dataclasses import dataclass
+
 from configplusplus import YamlConfigLoader
 
 
@@ -14,7 +14,7 @@ class FilterConfig:
     name: str
     type: str
     label: str
-    values: List[str]
+    values: list[str]
     enabled: bool = True
 
 
@@ -41,12 +41,12 @@ class UiConfig(YamlConfigLoader):
         self.debug_mode = app_config.get("debug", False)
 
         # Parse filters configuration
-        self.filters: List[FilterConfig] = []
+        self.filters: list[FilterConfig] = []
         for filter_data in self._raw_config.get("filters", []):
             self.filters.append(FilterConfig(**filter_data))
 
         # Parse card configuration
-        self.card_fields: List[CardFieldConfig] = []
+        self.card_fields: list[CardFieldConfig] = []
         for card_data in self._raw_config.get("card", []):
             self.card_fields.append(CardFieldConfig(**card_data))
 
