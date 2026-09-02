@@ -42,7 +42,7 @@ jobs:
       - name: Install dependencies
         run: poetry install --no-interaction
       - name: Run tests
-        run: poetry run pytest --cov=configplusplus --cov-report=term-missing --cov-fail-under=90
+        run: poetry run pytest --cov=configplusplus --cov-report=term-missing --cov-fail-under=95
 
   build:
     runs-on: ubuntu-latest
