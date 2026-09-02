@@ -286,3 +286,58 @@ def test_yaml_config_loader_empty_repr(sample_yaml_file):
 
     config = EmptyReprConfig(sample_yaml_file)
     assert "(No configuration loaded)" in repr(config)
+
+
+def test_yaml_to_dict_raw_and_masked(sample_yaml_file):
+    """to_dict() is raw by default; to_dict(mask=True) hides secrets."""
+
+    class SecretConfig(YamlConfigLoader):
+        def __post_init__(self) -> None:
+            self.api_secret_key = "supersecret123"
+            self.host = "localhost"
+
+    config = SecretConfig(sample_yaml_file)
+
+    assert config.to_dict()["api_secret_key"] == "supersecret123"
+
+    masked = config.to_dict(mask=True)
+    assert masked["host"] == "localhost"
+    assert "supersecret123" not in str(masked["api_secret_key"])
+
+
+def test_yaml_custom_sensitive_keyword(sample_yaml_file):
+    """A YAML config subclass can extend the sensitive-keyword set."""
+
+    class CustomConfig(YamlConfigLoader):
+        _sensitive_keywords = YamlConfigLoader._sensitive_keywords + ("PRIVATE",)
+
+        def __post_init__(self) -> None:
+            self.private_blob = "supersecretvalue"
+
+    config = CustomConfig(sample_yaml_file)
+    assert "supersecretvalue" not in repr(config)
+
+
+def test_yaml_empty_file_is_empty_config(tmp_path):
+    """An empty YAML file yields an empty config, not a crash."""
+    empty = tmp_path / "empty.yaml"
+    empty.write_text("")
+
+    class C(YamlConfigLoader):
+        pass
+
+    config = C(empty)
+    assert config._raw_config == {}
+    assert config.get("anything", default="fallback") == "fallback"
+
+
+def test_yaml_non_mapping_raises(tmp_path):
+    """A top-level non-mapping YAML document is rejected with a clear error."""
+    listy = tmp_path / "list.yaml"
+    listy.write_text("- a\n- b\n")
+
+    class C(YamlConfigLoader):
+        pass
+
+    with pytest.raises(TypeError, match="mapping"):
+        C(listy)

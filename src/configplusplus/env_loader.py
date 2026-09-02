@@ -49,6 +49,7 @@ class EnvConfigLoader(ConfigBase):
         env(key, cast=bool, default=False)          # Bool casting
         env(key, cast=pathlib.Path)                 # Path casting
         env_optional(key, default=None)             # Explicitly optional
+        env_list(key, cast=int)                     # Delimited value -> list
 
     Boolean Casting:
         When cast=bool, these strings are considered False:
@@ -67,7 +68,7 @@ class EnvConfigLoader(ConfigBase):
         - TOKEN
         - CREDENTIAL
 
-        Example output: "sec...et (hidden)"
+        Example output: "sec…89 (hidden)" (or "***hidden***" when <= 6 chars)
     """
 
     @classmethod

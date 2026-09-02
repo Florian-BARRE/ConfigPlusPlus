@@ -8,6 +8,8 @@ from typing import Any
 import yaml
 from loggerplusplus import loggerplusplus
 
+from configplusplus import _display
+
 
 class YamlConfigLoader:
     """
@@ -60,6 +62,10 @@ class YamlConfigLoader:
         logger: LoggerPlusPlus logger instance
     """
 
+    # Sensitive-keyword set used by the display/masking layer. Extend it in a
+    # subclass (never narrow it); masking is a safety feature.
+    _sensitive_keywords: tuple[str, ...] = _display.DEFAULT_SENSITIVE_KEYWORDS
+
     def __init__(self, config_path: str | pathlib.Path) -> None:
         """
         Initialize the YAML config loader.
@@ -102,10 +108,22 @@ class YamlConfigLoader:
         """
         try:
             with open(self.config_path, encoding="utf-8") as f:
-                return yaml.safe_load(f)
+                data = yaml.safe_load(f)
         except yaml.YAMLError as e:
             self.logger.error(f"Failed to parse YAML file: {e}")
             raise
+
+        # An empty file parses to None; treat it as an empty config.
+        if data is None:
+            return {}
+        if not isinstance(data, dict):
+            msg = (
+                f"Top-level YAML must be a mapping, got {type(data).__name__}: "
+                f"{self.config_path}"
+            )
+            self.logger.error(msg)
+            raise TypeError(msg)
+        return data
 
     def __post_init__(self) -> None:
         """
@@ -178,18 +196,25 @@ class YamlConfigLoader:
         except (KeyError, TypeError):
             return False
 
-    def to_dict(self) -> dict[str, Any]:
+    def to_dict(self, *, mask: bool = False) -> dict[str, Any]:
         """
         Convert config to dictionary, excluding private/special attributes.
+
+        Args:
+            mask: When True, sensitive values are masked (safe to log). When
+                False (default), raw values are returned.
 
         Returns:
             Dictionary containing all public instance attributes
         """
-        return {
+        result = {
             k: v
             for k, v in self.__dict__.items()
             if not k.startswith("_") and k not in ("logger", "config_path")
         }
+        if mask:
+            result = {k: self._mask_if_secret(k, v) for k, v in result.items()}
+        return result
 
     def _mask_if_secret(self, key: str, value: Any) -> Any:
         """
@@ -202,19 +227,7 @@ class YamlConfigLoader:
         Returns:
             Masked value if sensitive, original value otherwise
         """
-        if value is None:
-            return None
-
-        key_lower = key.lower()
-        sensitive_keywords = ("secret", "api_key", "password", "token", "credential")
-
-        if any(keyword in key_lower for keyword in sensitive_keywords):
-            s = str(value)
-            if len(s) <= 6:
-                return "***hidden***"
-            return f"{s[:3]}…{s[-2:]} (hidden)"
-
-        return value
+        return _display.mask_if_secret(key, value, self._sensitive_keywords)
 
     def __repr__(self) -> str:
         """
@@ -239,11 +252,7 @@ class YamlConfigLoader:
 
             for key in sorted(config_dict.keys()):
                 value = config_dict[key]
-                display_value = self._mask_if_secret(key, value)
-
-                # Handle paths
-                if isinstance(display_value, pathlib.Path):
-                    display_value = str(display_value.resolve())
+                display_value = _display.format_value(self._mask_if_secret(key, value))
 
                 # Handle lists/dicts - show count
                 if isinstance(display_value, list):
