@@ -209,7 +209,7 @@ def setup_logging() -> None:
         loggerplusplus.add(
             sink=InfraConfig.LOG_FILE,
             level=InfraConfig.LOG_LEVEL,
-            format=lpp_formats.DetailedFormat(),
+            format=lpp_formats.ClassicFormat(),
             rotation="100 MB",
             retention="30 days",
         )
