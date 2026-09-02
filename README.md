@@ -1,69 +1,79 @@
+<div align="center">
+
 # ConfigPlusPlus
 
-> Beautiful configuration management for Python with environment variables and YAML support
+### CONFIG, MADE LEGIBLE
 
-[![PyPI version](https://badge.fury.io/py/configplusplus.svg)](https://pypi.org/project/configplusplus/)
-[![Python](https://img.shields.io/pypi/pyversions/configplusplus.svg)](https://pypi.org/project/configplusplus/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+**Typed configuration for Python** — load it from environment variables or YAML, display it
+grouped and readable, and mask secrets automatically. A small, dependency-light library meant
+to be shared across every service in a stack.
 
-## Features
+[![PyPI](https://img.shields.io/pypi/v/configplusplus?label=configplusplus&color=4c6ef5)](https://pypi.org/project/configplusplus/)
+[![Python](https://img.shields.io/pypi/pyversions/configplusplus?color=4c6ef5)](https://pypi.org/project/configplusplus/)
+[![CI](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/ci.yml/badge.svg)](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/ci.yml)
+[![CodeQL](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/codeql.yml/badge.svg)](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/codeql.yml)
+[![License](https://img.shields.io/badge/license-MIT-4c6ef5)](LICENSE)
 
-✨ **Beautiful Display** - Pretty formatted configuration output with automatic grouping and secret masking
+</div>
 
-🔐 **Secret Masking** - Automatically hides sensitive values (API keys, passwords, tokens)
+> Declare a config class, read each field with `env(...)` or from a YAML file, and `print` it.
+> You get a grouped, aligned, secret-masked view of exactly what your service is running with —
+> the same on the class and on an instance.
 
-🌍 **Environment Variables** - Load configuration from environment variables with type casting
+---
 
-📄 **YAML Support** - Load configuration from YAML files with custom parsing
+### Why ConfigPlusPlus
 
-🎯 **Type Casting** - Automatic type conversion (str, int, float, bool, Path)
+- **One obvious place for configuration.** A config is a class; every `UPPERCASE` attribute is a
+  field. No scattered `os.getenv` calls, no untyped dictionaries.
+- **Readable by default.** `print(MyConfig)` renders a boxed, prefix-grouped, aligned view — on
+  the class itself, no instance required.
+- **Secrets never leak into logs.** Fields whose name contains `SECRET`, `API_KEY`, `PASSWORD`,
+  `TOKEN` or `CREDENTIAL` are masked automatically, everywhere the config is displayed.
+- **Typed, with a precise casting contract.** `env(..., cast=int|bool|float|pathlib.Path)` with a
+  documented, stable boolean rule — the same across every service that depends on it.
 
-🏷️ **Static & Instance** - Support for both static class-based and instance-based configs
+---
 
-## Installation
+### Installation
 
 ```bash
 pip install configplusplus
-```
-
-Or with Poetry:
-
-```bash
+# or
 poetry add configplusplus
 ```
 
-## Quick Start
+Requires Python 3.10+.
 
-### Environment-Based Configuration
+---
+
+### Quickstart
 
 ```python
 from configplusplus import EnvConfigLoader, env
 import pathlib
 
 class AppConfig(EnvConfigLoader):
-    # Required variables
-    DATABASE_HOST = env("DATABASE_HOST")
-    DATABASE_PORT = env("DATABASE_PORT", cast=int)
+    DATABASE_HOST = env("DATABASE_HOST")                       # required (raises if missing)
+    DATABASE_PORT = env("DATABASE_PORT", cast=int)             # typed
+    DATA_DIR      = env("DATA_DIR", cast=pathlib.Path)         # pathlib.Path
+    DEBUG_MODE    = env("DEBUG_MODE", cast=bool, default=False)  # optional with default
+    SECRET_API_KEY = env("SECRET_API_KEY")                     # masked on display
 
-    # Optional with defaults
-    DEBUG_MODE = env("DEBUG_MODE", cast=bool, default=False)
-
-    # Paths
-    DATA_DIR = env("DATA_DIR", cast=pathlib.Path)
-
-    # Secrets (automatically masked in output)
-    SECRET_API_KEY = env("SECRET_API_KEY")
-
-# Use as static class
-print(AppConfig.DATABASE_HOST)
-print(AppConfig)  # Beautiful formatted output
+print(AppConfig.DATABASE_HOST)   # -> 'localhost'
+print(AppConfig)                 # -> grouped, aligned, masked view
 ```
 
-**Output:**
-```
+`print(AppConfig)` renders:
+
+```text
 ╔════════════════════════════════════════════╗
-║              APPCONFIG                     ║
+║                 APPCONFIG                  ║
 ╚════════════════════════════════════════════╝
+
+▶ API
+    API_ENDPOINT = 'https://api.example.com'
+    API_KEY      = 'key…56 (hidden)'
 
 ▶ DATABASE
     DATABASE_HOST = 'localhost'
@@ -72,319 +82,190 @@ print(AppConfig)  # Beautiful formatted output
 ▶ DEBUG
     DEBUG_MODE = False
 
-▶ DATA
-    DATA_DIR = '/var/data/myapp'
-
 ▶ SECRET
-    SECRET_API_KEY = 'sec...et (hidden)'
+    SECRET_JWT_KEY = 'sk_…89 (hidden)'
 ```
 
-### YAML-Based Configuration
+Only `UPPERCASE`, non-callable attributes are part of a config. Fields are grouped by the prefix
+before the first underscore (`DATABASE_HOST` + `DATABASE_PORT` → **DATABASE**).
+
+> `EnvConfigLoader` bodies are evaluated **at import time** — the environment must already be
+> populated when the class is defined. Load your `.env` before importing the config (see below).
+
+---
+
+### The `env()` casting contract
 
 ```python
-from configplusplus import YamlConfigLoader
-
-class UiConfig(YamlConfigLoader):
-    def __post_init__(self) -> None:
-        # Parse the loaded YAML data
-        self.app_name = self._raw_config["application"]["name"]
-        self.theme = self._raw_config["display"]["theme"]
-
-        # Parse nested structures
-        self.filters = [
-            FilterConfig(**f)
-            for f in self._raw_config["filters"]
-        ]
-
-# Instantiate with path
-config = UiConfig("config.yaml")
-print(config.app_name)
-print(config)  # Beautiful formatted output
+env(key: str, *, default=None, cast=str, required=True)
 ```
 
-## Environment Variables
+| Argument   | Default | Behaviour                                                        |
+|------------|---------|------------------------------------------------------------------|
+| `cast`     | `str`   | `int`, `float`, `bool`, `pathlib.Path`, or any 1-arg callable    |
+| `default`  | `None`  | Returned when the variable is unset                              |
+| `required` | `True`  | Raise `RuntimeError` if unset **and** no default is provided     |
 
-### Basic Usage
+`env_optional(key, *, default=None, cast=str)` is the shorthand for `required=False`.
 
-```python
-from configplusplus import env
+**Boolean casting** (`cast=bool`) — these strings are `False`; everything else is `True`:
 
-# String (default)
-DATABASE_HOST = env("DATABASE_HOST")
-
-# Integer
-DATABASE_PORT = env("DATABASE_PORT", cast=int)
-
-# Boolean
-DEBUG_MODE = env("DEBUG_MODE", cast=bool)
-
-# Float
-TEMPERATURE = env("TEMPERATURE", cast=float)
-
-# Path
-DATA_DIR = env("DATA_DIR", cast=pathlib.Path)
-
-# With default value
-TIMEOUT = env("TIMEOUT", cast=int, default=30)
-
-# Optional (won't raise if missing)
-OPTIONAL = env("OPTIONAL", required=False, default=None)
+```text
+"false"  "False"  "FALSE"  "0"  "no"  "No"  "NO"  ""
 ```
 
-### Boolean Casting
+---
 
-When `cast=bool`, these strings are considered `False`:
-- `"false"`, `"False"`, `"FALSE"`
-- `"0"`
-- `"no"`, `"No"`, `"NO"`
-- `""` (empty string)
-
-All other values are considered `True`.
-
-### Loading .env Files
+### Loading `.env` files
 
 ```python
 from configplusplus import safe_load_envs
 
-# Load .env file with logging
-safe_load_envs()  # Loads from ".env"
+safe_load_envs()                 # load ./.env  (default)
+safe_load_envs(".env")           # explicit file
+safe_load_envs("config/.env")    # nested file
+safe_load_envs("./config")       # a directory: loads every *.env inside it
+safe_load_envs(verbose=False)    # silent
 
-# Load from custom path
-safe_load_envs("config/.env")
-
-# Silent loading
-safe_load_envs(verbose=False)
+# Typical entrypoint: load the environment BEFORE importing config classes.
 ```
 
-## YAML Configuration
+Returns `True` if at least one file was loaded, `False` otherwise. Accepts a `str` or a
+`pathlib.Path`, a single `*.env` file or a directory of them.
 
-### Basic Usage
+---
+
+### YAML configuration
 
 ```python
 from configplusplus import YamlConfigLoader
-
-class MyConfig(YamlConfigLoader):
-    def __post_init__(self) -> None:
-        # Access raw YAML data
-        self.database_host = self._raw_config["database"]["host"]
-        self.database_port = self._raw_config["database"]["port"]
-```
-
-### Helper Methods
-
-```python
-config = MyConfig("config.yaml")
-
-# Get values with dot notation
-host = config.get("database.host")
-port = config.get("database.port")
-
-# Get with default
-timeout = config.get("api.timeout", default=30)
-
-# Check if key exists
-if config.has("database.host"):
-    print("Database configured")
-
-# Convert to dictionary
-config_dict = config.to_dict()
-```
-
-## Advanced Features
-
-### Custom Validation
-
-```python
-class ValidatedConfig(EnvConfigLoader):
-    DATABASE_PORT = env("DATABASE_PORT", cast=int)
-
-    @classmethod
-    def validate(cls) -> None:
-        super().validate()
-        if cls.DATABASE_PORT < 1024:
-            raise RuntimeError("DATABASE_PORT must be >= 1024")
-
-# Validate configuration
-ValidatedConfig.validate()
-```
-
-### Structured Data from YAML
-
-```python
-from dataclasses import dataclass
-from typing import List
-
-@dataclass
-class FilterConfig:
-    name: str
-    type: str
-    enabled: bool = True
 
 class UiConfig(YamlConfigLoader):
     def __post_init__(self) -> None:
-        # Parse list of structured objects
-        self.filters: List[FilterConfig] = [
-            FilterConfig(**f)
-            for f in self._raw_config["filters"]
-        ]
+        self.app_name = self._raw_config["application"]["name"]
+        self.theme    = self._raw_config["display"]["theme"]
+
+config = UiConfig("config.yaml")
+
+config.get("database.host")            # dot-notation access
+config.get("api.timeout", default=30)  # with a fallback
+config.has("database.host")            # membership test
+config.to_dict()                       # plain dict
+print(config)                          # same grouped, masked display
 ```
 
-### Multiple Configuration Sources
+Unlike `EnvConfigLoader`, `YamlConfigLoader` is **instantiated** with a path and runs a
+`__post_init__` hook where you shape the raw YAML into typed attributes.
+
+---
+
+### Secret masking
+
+Masking is a safety feature, applied wherever a config is displayed. A field is masked when its
+name contains any of:
+
+```text
+SECRET   API_KEY   PASSWORD   TOKEN   CREDENTIAL
+```
 
 ```python
-# Combine environment and YAML configs
-class AppConfig(EnvConfigLoader):
-    # From environment
-    SECRET_API_KEY = env("SECRET_API_KEY")
-    DATABASE_HOST = env("DATABASE_HOST")
-
-    # Load YAML for features
-    @classmethod
-    def load_features(cls) -> None:
-        yaml_config = YamlConfigLoader("features.yaml")
-        cls.FEATURES = yaml_config.get("features")
-
-AppConfig.load_features()
+SECRET_API_KEY = "sk_live_abc123xyz789"   # shown as 'sk_…89 (hidden)'
+PASSWORD       = "short"                   # shown as '***hidden***'   (≤ 6 chars)
 ```
 
-## Secret Masking
+---
 
-Variables containing these keywords are automatically masked in output:
-- `SECRET`
-- `API_KEY`
-- `PASSWORD`
-- `TOKEN`
-- `CREDENTIAL`
-
-Example:
-```python
-SECRET_API_KEY = "sk_live_abc123xyz789"
-# Output: "sk_...89 (hidden)"
-
-PASSWORD = "short"
-# Output: "***hidden***"
-```
-
-## Configuration Grouping
-
-Configuration values are automatically grouped by prefix:
+### Custom validation
 
 ```python
-class AppConfig(EnvConfigLoader):
-    DATABASE_HOST = env("DATABASE_HOST")
-    DATABASE_PORT = env("DATABASE_PORT", cast=int)
-    API_ENDPOINT = env("API_ENDPOINT")
-    API_KEY = env("API_KEY")
-```
-
-**Output shows grouped display:**
-```
-▶ DATABASE
-    DATABASE_HOST = 'localhost'
-    DATABASE_PORT = 5432
-
-▶ API
-    API_ENDPOINT = 'https://api.example.com'
-    API_KEY = 'key...23 (hidden)'
-```
-
-## Real-World Examples
-
-### FastAPI Application Config
-
-```python
-from configplusplus import EnvConfigLoader, env, safe_load_envs
-import pathlib
-
-safe_load_envs()
-
 class APIConfig(EnvConfigLoader):
-    # Server
-    HOST = env("HOST", default="0.0.0.0")
     PORT = env("PORT", cast=int, default=8000)
-
-    # Database
-    DATABASE_URL = env("DATABASE_URL")
-    DATABASE_POOL_SIZE = env("DATABASE_POOL_SIZE", cast=int, default=10)
-
-    # Redis
-    REDIS_HOST = env("REDIS_HOST", default="localhost")
-    REDIS_PORT = env("REDIS_PORT", cast=int, default=6379)
-
-    # Security
-    SECRET_JWT_KEY = env("SECRET_JWT_KEY")
-    TOKEN_EXPIRE_MINUTES = env("TOKEN_EXPIRE_MINUTES", cast=int, default=60)
-
-    # Features
-    ENABLE_CORS = env("ENABLE_CORS", cast=bool, default=True)
-    ENABLE_DOCS = env("ENABLE_DOCS", cast=bool, default=False)
 
     @classmethod
     def validate(cls) -> None:
-        if cls.PORT < 1024 or cls.PORT > 65535:
-            raise RuntimeError("Invalid PORT")
+        super().validate()               # always call super().validate()
+        if not (1024 <= cls.PORT <= 65535):
+            raise RuntimeError("PORT out of range")
 
-# Use in FastAPI
-from fastapi import FastAPI
-
-app = FastAPI(
-    title="My API",
-    docs_url="/docs" if APIConfig.ENABLE_DOCS else None,
-)
+APIConfig.validate()
 ```
 
-### Document Processing Pipeline Config
+---
 
-```python
-from configplusplus import YamlConfigLoader
-from typing import List
-from dataclasses import dataclass
+### Architecture
 
-@dataclass
-class ProcessorConfig:
-    name: str
-    enabled: bool
-    priority: int
+```mermaid
+graph TD
+    Meta["ConfigMeta (metaclass)<br/>display · grouping · masking"]
+    Base["ConfigBase<br/>re-dispatches __repr__ to the metaclass"]
+    Env["EnvConfigLoader<br/>static · body runs at import time"]
+    Yaml["YamlConfigLoader<br/>instance · __post_init__ hook"]
 
-class PipelineConfig(YamlConfigLoader):
-    def __post_init__(self) -> None:
-        # Parse processors
-        self.processors: List[ProcessorConfig] = [
-            ProcessorConfig(**p)
-            for p in self._raw_config["processors"]
-        ]
-
-        # Parse paths
-        self.input_dir = pathlib.Path(self._raw_config["paths"]["input"])
-        self.output_dir = pathlib.Path(self._raw_config["paths"]["output"])
-
-        # Parse settings
-        self.batch_size = self._raw_config["settings"]["batch_size"]
-        self.max_workers = self._raw_config["settings"]["max_workers"]
-
-# Load configuration
-config = PipelineConfig("pipeline.yaml")
-
-# Use in pipeline
-for processor in sorted(config.processors, key=lambda x: x.priority):
-    if processor.enabled:
-        print(f"Running {processor.name}")
+    Meta --> Base
+    Base --> Env
+    Meta -. "duplicates mask + __repr__" .-> Yaml
 ```
 
-## Documentation
+The display lives on the **metaclass**, which is why `print(MyConfig)` works on the class with no
+instance. `YamlConfigLoader` intentionally re-implements masking so it can display instances the
+same way.
 
-- **Quick Reference**: See [REFERENCE.md](docs/REFERENCE.md) for a cheat sheet
-- **Detailed Guide**: See [USAGE.md](docs/USAGE.md) for comprehensive documentation
-- **Examples**: Check the `examples/` directory for working code samples
+---
 
-## Links
+### Public API
 
-- **PyPI**: https://pypi.org/project/configplusplus/
-- **GitHub**: https://github.com/Florian-BARRE/ConfigPlusPlus
-- **Issues**: https://github.com/Florian-BARRE/ConfigPlusPlus/issues
+| Symbol             | Kind      | Purpose                                                        |
+|--------------------|-----------|----------------------------------------------------------------|
+| `EnvConfigLoader`  | class     | Static, class-based config read from environment variables     |
+| `YamlConfigLoader` | class     | Instance-based config read from a YAML file                    |
+| `ConfigBase`       | class     | Base for custom loaders; delegates display to `ConfigMeta`     |
+| `ConfigMeta`       | metaclass | Owns `to_dict`, grouping and masking                           |
+| `env`              | function  | Read one variable with casting / default / required            |
+| `env_optional`     | function  | `env(..., required=False)` shorthand                           |
+| `safe_load_envs`   | function  | Load `.env` file(s) from a path or directory, with logging     |
 
-## License
+---
 
-MIT License - See [LICENSE](LICENSE) file for details.
+### Documentation
 
-**Author**: Florian BARRE
+| Guide                              | Contents                                        |
+|------------------------------------|-------------------------------------------------|
+| [Installation](docs/INSTALL.md)    | Install options and requirements                |
+| [Usage](docs/USAGE.md)             | Full walkthrough of every feature               |
+| [Reference](docs/REFERENCE.md)     | Concise API cheat-sheet                         |
+| [`examples/`](examples/)           | Runnable end-to-end scripts                     |
+
+---
+
+### Project layout
+
+```text
+src/configplusplus/
+├── __init__.py       public API + __all__
+├── base.py           ConfigMeta (display, grouping, masking) + ConfigBase
+├── env_loader.py     EnvConfigLoader — static, import-time evaluation
+├── yaml_loader.py    YamlConfigLoader — instance, __post_init__, dot-notation get()
+└── utils.py          env() · env_optional() · safe_load_envs()
+```
+
+---
+
+### Development
+
+```bash
+poetry install                                   # editable install (src layout)
+poetry run pytest                                # tests + coverage
+poetry run black src/ tests/ examples/           # formatting (checked in CI)
+poetry run ruff check src/ tests/ examples/      # linting
+poetry run mypy src/                             # type checking
+```
+
+Releases are automated. Commit with [Conventional Commits](https://www.conventionalcommits.org)
+(`fix:`, `feat:`, `feat!:`); merging to `main` lets **release-please** open a version-bump PR,
+and merging that PR tags the release and publishes to PyPI via Trusted Publishing (OIDC).
+
+---
+
+### License
+
+[MIT](LICENSE) © Florian BARRE
