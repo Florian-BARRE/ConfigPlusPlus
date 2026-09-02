@@ -11,7 +11,7 @@ poetry add configplusplus
 ## Environment Config (Static)
 
 ```python
-from configplusplus import EnvConfigLoader, env, safe_load_envs
+from configplusplus import EnvConfigLoader, env, env_optional, safe_load_envs
 
 # Load .env file
 safe_load_envs()
@@ -89,6 +89,12 @@ env("KEY", cast=int)                 # Required int
 env("KEY", default="value")          # Optional with default
 env("KEY", cast=bool, default=False) # Bool with default
 env("KEY", required=False)           # Explicitly optional
+
+# Read optional environment variables (never raises)
+env_optional("KEY")                           # None if unset
+env_optional("KEY", default="value")          # Default if unset
+env_optional("KEY", cast=int, default=0)      # Cast + default
+env_optional("KEY", cast=bool, default=False) # Bool with default
 ```
 
 ## Boolean Casting
