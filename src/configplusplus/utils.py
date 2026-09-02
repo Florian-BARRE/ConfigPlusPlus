@@ -12,14 +12,14 @@ from loggerplusplus import formats as lpp_formats
 from loggerplusplus import loggerplusplus
 
 
-def safe_load_envs(path: str | pathlib.Path, verbose: bool = True) -> bool:
+def safe_load_envs(path: str | pathlib.Path = ".env", verbose: bool = True) -> bool:
     """
     Load all *.env files found at the given path (file or directory)
     with detailed logging.
 
     Args:
         path: Path to a directory containing *.env files
-              OR path to a specific .env file.
+              OR path to a specific .env file (default: ".env").
         verbose: Whether to log loading information (default: True)
 
     Returns:
@@ -54,7 +54,7 @@ def safe_load_envs(path: str | pathlib.Path, verbose: bool = True) -> bool:
     # Collect all *.env files
     if path_obj.is_dir():
         env_files = sorted(path_obj.glob("*.env"))
-    elif path_obj.is_file() and path_obj.suffix == ".env":
+    elif path_obj.is_file() and path_obj.name.endswith(".env"):
         env_files = [path_obj]
     else:
         env_files = []
