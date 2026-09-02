@@ -113,6 +113,19 @@ def test_verbose_true_logs_and_leaves_no_sink(tmp_path, capsys):
     assert capsys.readouterr().out == ""
 
 
+def test_verbose_no_files_warns(tmp_path, capsys):
+    # verbose path with no matching file -> "No *.env files found" branch
+    assert safe_load_envs(tmp_path / "missing.env", verbose=True) is False
+    assert "No *.env files" in capsys.readouterr().out
+
+
+def test_verbose_empty_file_warns_failed_load(tmp_path, capsys):
+    # an empty .env matches but load_dotenv returns False -> "Failed to load" branch
+    (tmp_path / ".env").write_text("")
+    assert safe_load_envs(tmp_path / ".env", verbose=True) is False
+    assert "Failed to load" in capsys.readouterr().out
+
+
 # --------------------------------------------------------------------------- #
 # env
 # --------------------------------------------------------------------------- #

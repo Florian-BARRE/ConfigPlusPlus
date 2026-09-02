@@ -249,3 +249,40 @@ def test_yaml_config_loader_str_method(sample_yaml_file):
 
     # str and repr should be the same
     assert str_output == repr_output
+
+
+def test_yaml_config_loader_mask_none_value(sample_yaml_file):
+    """A None-valued attribute exercises the None branch of the loader's masking."""
+
+    class NoneConfig(YamlConfigLoader):
+        def __post_init__(self) -> None:
+            self.optional_token = None
+
+    config = NoneConfig(sample_yaml_file)
+
+    assert config.to_dict()["optional_token"] is None
+    assert "optional_token" in repr(config)
+
+
+def test_yaml_config_loader_mask_short_secret(sample_yaml_file):
+    """A short secret (<= 6 chars) is fully masked by the loader's own masking."""
+
+    class ShortSecretConfig(YamlConfigLoader):
+        def __post_init__(self) -> None:
+            self.api_token = "abc"
+
+    config = ShortSecretConfig(sample_yaml_file)
+    repr_str = repr(config)
+
+    assert "***hidden***" in repr_str
+    assert "abc" not in repr_str
+
+
+def test_yaml_config_loader_empty_repr(sample_yaml_file):
+    """repr of a config with no parsed attributes shows the empty marker."""
+
+    class EmptyReprConfig(YamlConfigLoader):
+        pass
+
+    config = EmptyReprConfig(sample_yaml_file)
+    assert "(No configuration loaded)" in repr(config)
