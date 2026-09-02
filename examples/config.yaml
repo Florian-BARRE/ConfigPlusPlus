@@ -14,7 +14,7 @@ filters:
       - "Excel"
       - "PowerPoint"
       - "Text"
-  
+
   - name: "date_range"
     type: "daterange"
     label: "Date Range"
@@ -24,7 +24,7 @@ filters:
       - "last_30_days"
       - "last_90_days"
       - "custom"
-  
+
   - name: "author"
     type: "select"
     label: "Author"
@@ -34,7 +34,7 @@ filters:
       - "Jane Smith"
       - "Bob Johnson"
       - "Alice Williams"
-  
+
   - name: "category"
     type: "multiselect"
     label: "Category"
@@ -51,32 +51,32 @@ card:
     label: "Title"
     type: "text"
     visible: true
-  
+
   - name: "author"
     label: "Author"
     type: "text"
     visible: true
-  
+
   - name: "date"
     label: "Created Date"
     type: "date"
     visible: true
-  
+
   - name: "document_type"
     label: "Type"
     type: "badge"
     visible: true
-  
+
   - name: "category"
     label: "Category"
     type: "tag"
     visible: true
-  
+
   - name: "summary"
     label: "Summary"
     type: "text"
     visible: false
-  
+
   - name: "page_count"
     label: "Pages"
     type: "number"

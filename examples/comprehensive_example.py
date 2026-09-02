@@ -11,12 +11,12 @@ This example demonstrates:
 
 import pathlib
 import sys
-from typing import List
 from dataclasses import dataclass
 
-from configplusplus import EnvConfigLoader, YamlConfigLoader, env, safe_load_envs
-from loggerplusplus import loggerplusplus
 from loggerplusplus import formats as lpp_formats
+from loggerplusplus import loggerplusplus
+
+from configplusplus import EnvConfigLoader, YamlConfigLoader, env, safe_load_envs
 
 # ============================================================================
 # Environment-based Configuration (Secrets & Infrastructure)
@@ -140,7 +140,7 @@ class FilterConfig:
     type: str
     label: str
     enabled: bool = True
-    values: List[str] = None
+    values: list[str] = None
 
 
 @dataclass
@@ -150,7 +150,7 @@ class ProcessorConfig:
     name: str
     enabled: bool
     priority: int
-    extensions: List[str]
+    extensions: list[str]
     max_size_mb: int = 50
 
 
@@ -161,12 +161,12 @@ class AppConfig(YamlConfigLoader):
         """Parse YAML configuration."""
 
         # Parse search filters
-        self.filters: List[FilterConfig] = [
+        self.filters: list[FilterConfig] = [
             FilterConfig(**f) for f in self._raw_config.get("filters", [])
         ]
 
         # Parse document processors
-        self.processors: List[ProcessorConfig] = [
+        self.processors: list[ProcessorConfig] = [
             ProcessorConfig(**p) for p in self._raw_config.get("processors", [])
         ]
 
@@ -182,11 +182,11 @@ class AppConfig(YamlConfigLoader):
         self.highlight_terms = search_config.get("highlight_terms", True)
         self.fuzzy_matching = search_config.get("fuzzy_matching", False)
 
-    def get_enabled_filters(self) -> List[FilterConfig]:
+    def get_enabled_filters(self) -> list[FilterConfig]:
         """Get list of enabled filters."""
         return [f for f in self.filters if f.enabled]
 
-    def get_enabled_processors(self) -> List[ProcessorConfig]:
+    def get_enabled_processors(self) -> list[ProcessorConfig]:
         """Get list of enabled processors sorted by priority."""
         enabled = [p for p in self.processors if p.enabled]
         return sorted(enabled, key=lambda x: x.priority)
@@ -253,30 +253,30 @@ def main() -> None:
     print("Configuration Summary")
     print("=" * 80)
 
-    print(f"\n📌 Application")
+    print("\n📌 Application")
     print(f"   Name: {InfraConfig.APP_NAME}")
     print(f"   Version: {InfraConfig.APP_VERSION}")
     print(f"   Environment: {InfraConfig.ENVIRONMENT}")
 
-    print(f"\n🌐 Server")
+    print("\n🌐 Server")
     print(f"   Address: {InfraConfig.HOST}:{InfraConfig.PORT}")
     print(f"   Workers: {InfraConfig.WORKERS}")
 
-    print(f"\n💾 Database")
+    print("\n💾 Database")
     print(f"   PostgreSQL: {InfraConfig.DATABASE_HOST}:{InfraConfig.DATABASE_PORT}")
     print(f"   Redis: {InfraConfig.REDIS_HOST}:{InfraConfig.REDIS_PORT}")
     print(f"   Qdrant: {InfraConfig.QDRANT_URL}")
 
-    print(f"\n🤖 AI Models")
+    print("\n🤖 AI Models")
     print(f"   Chat Model: {InfraConfig.OPENAI_MODEL}")
     print(f"   Embedding Model: {InfraConfig.OPENAI_EMBEDDING_MODEL}")
 
-    print(f"\n🎨 UI Configuration")
+    print("\n🎨 UI Configuration")
     print(f"   Theme: {app_config.theme}")
     print(f"   Items per page: {app_config.items_per_page}")
     print(f"   Preview enabled: {app_config.enable_preview}")
 
-    print(f"\n🔍 Search Configuration")
+    print("\n🔍 Search Configuration")
     print(f"   Max results: {app_config.max_results}")
     print(f"   Fuzzy matching: {app_config.fuzzy_matching}")
 
@@ -289,7 +289,7 @@ def main() -> None:
         exts = ", ".join(proc.extensions)
         print(f"   ✓ {proc.name} [{exts}] (priority: {proc.priority})")
 
-    print(f"\n🎯 Features")
+    print("\n🎯 Features")
     print(f"   CORS: {'✓' if InfraConfig.ENABLE_CORS else '✗'}")
     print(f"   API Docs: {'✓' if InfraConfig.ENABLE_DOCS else '✗'}")
     print(f"   Metrics: {'✓' if InfraConfig.ENABLE_METRICS else '✗'}")

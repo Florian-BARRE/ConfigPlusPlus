@@ -2,9 +2,11 @@
 Tests for EnvConfigLoader
 """
 
-import pytest
 import os
 import pathlib
+
+import pytest
+
 from configplusplus import EnvConfigLoader, env
 
 

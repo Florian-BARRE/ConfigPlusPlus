@@ -2,10 +2,12 @@
 Tests for YamlConfigLoader
 """
 
-import pytest
 import pathlib
 import tempfile
+
+import pytest
 import yaml
+
 from configplusplus import YamlConfigLoader
 
 

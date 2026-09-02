@@ -1,127 +1,127 @@
-name: Publish to PyPI
+name: Publish
 
 on:
-  # Trigger automatically when you push a version tag like v0.1.0, v1.2.3, etc.
+  # Normal path: release-please dispatches this workflow with repository=pypi
+  # after it has created the tag and the GitHub Release.
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing git tag to publish (e.g. v0.1.1)"
+        required: true
+      repository:
+        description: "Target index"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+  # Escape hatch: a human manually pushing a tag also publishes to real PyPI.
   push:
     tags:
       - "v*"
 
-  # Trigger manually from the GitHub UI (Actions tab) without creating a new tag.
-  # You can choose which existing tag to publish.
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: "Existing git tag to publish (example: v0.1.0)"
-        required: true
-        # You can change this default to your most common tag pattern.
-        default: "v0.1.0"
-
 permissions:
-  # Required to checkout repository contents.
   contents: read
-  # REQUIRED for PyPI Trusted Publishing (OIDC).
-  id-token: write
 
 jobs:
+  # Re-run the full quality gate against the tagged code before any upload.
+  quality:
+    uses: ./.github/workflows/quality.yml
+
   publish:
+    needs: quality
     runs-on: ubuntu-latest
-    environment: pypi
+    environment: ${{ (github.event_name == 'workflow_dispatch' && inputs.repository) || 'pypi' }}
+    permissions:
+      contents: write   # create the GitHub Release (tag-push path only)
+      id-token: write   # REQUIRED for PyPI Trusted Publishing (OIDC)
 
     steps:
-      # --------------------------------------------
-      # 1) Resolve which tag we are publishing
-      # --------------------------------------------
-      - name: Resolve target tag
-        id: resolve_tag
+      - name: Resolve tag and target index
+        id: resolve
         shell: bash
         run: |
           set -euo pipefail
-
-          # If triggered manually, use the input tag.
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             TAG="${{ inputs.tag }}"
+            TARGET="${{ inputs.repository }}"
           else
-            # If triggered by a tag push, extract the tag from GITHUB_REF.
             TAG="${GITHUB_REF#refs/tags/}"
+            TARGET="pypi"
           fi
-
-          # Basic validation: we only accept tags starting with "v"
           if [[ ! "$TAG" =~ ^v[0-9]+(\.[0-9]+){1,3}.*$ ]]; then
-            echo "❌ Invalid tag format: '$TAG' (expected something like v0.1.0)"
+            echo "::error::Invalid tag format: '$TAG' (expected e.g. v0.1.0)"
             exit 1
           fi
-
-          echo "Publishing tag: $TAG"
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "Publishing $TAG to $TARGET"
 
-      # --------------------------------------------
-      # 2) Checkout the repository *at the tag*
-      #    - fetch-depth: 0 ensures tags/history are available (robust)
-      # --------------------------------------------
       - name: Checkout code at tag
-        uses: actions/checkout@v4
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
         with:
-          ref: ${{ steps.resolve_tag.outputs.tag }}
+          ref: ${{ steps.resolve.outputs.tag }}
           fetch-depth: 0
           fetch-tags: true
 
-      # --------------------------------------------
-      # 3) Set up Python
-      # --------------------------------------------
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
           python-version: "3.11"
 
-      # --------------------------------------------
-      # 4) Install Poetry (and upgrade pip)
-      # --------------------------------------------
       - name: Install Poetry
+        run: pipx install poetry
+
+      - name: Verify tag == pyproject == __init__ version
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install --upgrade pip
-          pip install poetry
+          TAG_VERSION="${{ steps.resolve.outputs.tag }}"
+          TAG_VERSION="${TAG_VERSION#v}"
+          POETRY_VERSION="$(poetry version -s)"
+          INIT_VERSION="$(python -c 'import re,pathlib; print(re.search(r"__version__\s*=\s*\"([^\"]+)\"", pathlib.Path("src/configplusplus/__init__.py").read_text()).group(1))')"
 
-      # --------------------------------------------
-      # 5) Ensure the tag version matches pyproject version
-      #    - Prevents accidental publishing of mismatched versions
-      # --------------------------------------------
-      - name: Verify version matches tag
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          TAG="${{ steps.resolve_tag.outputs.tag }}"
-          TAG_VERSION="${TAG#v}"                 # e.g. v0.1.0 -> 0.1.0
-          POETRY_VERSION="$(poetry version -s)"  # reads version from pyproject.toml
-
-          echo "Tag version:    $TAG_VERSION"
-          echo "Poetry version:  $POETRY_VERSION"
+          echo "Tag:       $TAG_VERSION"
+          echo "pyproject: $POETRY_VERSION"
+          echo "__init__:  $INIT_VERSION"
 
           if [[ "$TAG_VERSION" != "$POETRY_VERSION" ]]; then
-            echo "❌ Error: Version mismatch (tag=$TAG_VERSION, pyproject=$POETRY_VERSION)"
+            echo "::error::Version mismatch (tag=$TAG_VERSION, pyproject=$POETRY_VERSION)"
             exit 1
           fi
+          if [[ "$INIT_VERSION" != "$POETRY_VERSION" ]]; then
+            echo "::error::__init__.__version__ ($INIT_VERSION) != pyproject ($POETRY_VERSION)"
+            exit 1
+          fi
+          echo "Version match confirmed (tag = pyproject = __init__)"
 
-          echo "✅ Version match confirmed"
-
-      # --------------------------------------------
-      # 6) Build distributions (sdist + wheel)
-      # --------------------------------------------
-      - name: Build package
-        shell: bash
+      - name: Build distributions
         run: |
-          set -euo pipefail
           poetry build
           ls -lh dist/
 
-      # --------------------------------------------
-      # 7) Publish to PyPI via Trusted Publishing (OIDC)
-      #    - Requires PyPI project configured as a "Trusted Publisher"
-      # --------------------------------------------
+      - name: Publish to TestPyPI
+        if: steps.resolve.outputs.target == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
+        with:
+          packages-dir: dist/
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
+
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
+        if: steps.resolve.outputs.target == 'pypi'
+        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
         with:
           packages-dir: dist/
           print-hash: true
+
+      # Only when a human pushed a tag directly. On the release-please path the
+      # Release already exists, so we do not recreate it here.
+      - name: Create GitHub Release
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.resolve.outputs.tag }}" \
+            dist/*.whl dist/*.tar.gz \
+            --title "${{ steps.resolve.outputs.tag }}" \
+            --generate-notes

@@ -2,13 +2,14 @@
 Utility functions for configuration management
 """
 
-import pathlib
-from typing import Any
-from dotenv import load_dotenv
-from loggerplusplus import loggerplusplus
-from loggerplusplus import formats as lpp_formats
-import sys
 import os
+import pathlib
+import sys
+from typing import Any
+
+from dotenv import load_dotenv
+from loggerplusplus import formats as lpp_formats
+from loggerplusplus import loggerplusplus
 
 
 def safe_load_envs(path: str | pathlib.Path, verbose: bool = True) -> bool:
@@ -120,7 +121,7 @@ def env(
         return None
 
     # Special handling for boolean casting from string
-    if cast == bool and isinstance(val, str):
+    if cast is bool and isinstance(val, str):
         return val.strip().lower() not in {"false", "0", "no", ""}
 
     return cast(val)

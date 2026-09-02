@@ -2,8 +2,8 @@
 Base classes for configuration management with beautiful display
 """
 
-from typing import Any, Dict
 import pathlib
+from typing import Any
 
 
 class ConfigMeta(type):
@@ -16,7 +16,7 @@ class ConfigMeta(type):
     - Secret masking for sensitive values
     """
 
-    def to_dict(cls) -> Dict[str, Any]:
+    def to_dict(cls) -> dict[str, Any]:
         """
         Return all UPPERCASE, non-callable attributes as a dict.
 
@@ -52,7 +52,7 @@ class ConfigMeta(type):
 
         return value
 
-    def _grouped_items(cls) -> Dict[str, list]:
+    def _grouped_items(cls) -> dict[str, list]:
         """
         Group configuration items by prefix before first underscore.
 
@@ -63,7 +63,7 @@ class ConfigMeta(type):
             Dictionary mapping prefixes to list of (key, value) tuples
         """
         items = cls.to_dict()
-        groups: Dict[str, list] = {}
+        groups: dict[str, list] = {}
 
         for k, v in items.items():
             prefix = k.split("_", 1)[0]  # e.g., QDRANT_URL -> QDRANT

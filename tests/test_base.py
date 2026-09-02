@@ -3,6 +3,7 @@ Tests for base configuration classes
 """
 
 import pathlib
+
 from configplusplus.base import ConfigBase
 
 
