@@ -2,10 +2,11 @@
 
 import os
 import pathlib
+import sys
 
 import pytest
 
-from configplusplus import env, safe_load_envs
+from configplusplus import env, env_list, safe_load_envs
 from configplusplus.utils import env_optional
 
 
@@ -177,3 +178,89 @@ def test_env_optional_returns_default_when_unset(monkeypatch):
 def test_env_optional_casts_when_set(monkeypatch):
     monkeypatch.setenv("OPT_TIMEOUT", "30")
     assert env_optional("OPT_TIMEOUT", cast=int) == 30
+
+
+def test_env_cast_error_names_key(monkeypatch):
+    monkeypatch.setenv("EV_PORT", "notanint")
+    with pytest.raises(RuntimeError, match="EV_PORT"):
+        env("EV_PORT", cast=int)
+
+
+# --------------------------------------------------------------------------- #
+# env_list
+# --------------------------------------------------------------------------- #
+
+
+def test_env_list_basic(monkeypatch):
+    monkeypatch.setenv("EL_HOSTS", "a, b ,c")
+    assert env_list("EL_HOSTS") == ["a", "b", "c"]
+
+
+def test_env_list_drops_empty_items(monkeypatch):
+    monkeypatch.setenv("EL_HOSTS", "a,,b,")
+    assert env_list("EL_HOSTS") == ["a", "b"]
+
+
+def test_env_list_cast_int(monkeypatch):
+    monkeypatch.setenv("EL_PORTS", "80, 443")
+    assert env_list("EL_PORTS", cast=int) == [80, 443]
+
+
+def test_env_list_custom_separator(monkeypatch):
+    monkeypatch.setenv("EL_PATHS", "/a:/b:/c")
+    assert env_list("EL_PATHS", sep=":") == ["/a", "/b", "/c"]
+
+
+def test_env_list_unset_optional_returns_empty(monkeypatch):
+    monkeypatch.delenv("EL_MISSING", raising=False)
+    assert env_list("EL_MISSING", required=False) == []
+
+
+def test_env_list_unset_returns_default(monkeypatch):
+    monkeypatch.delenv("EL_MISSING", raising=False)
+    assert env_list("EL_MISSING", default=["x"]) == ["x"]
+
+
+def test_env_list_unset_required_raises(monkeypatch):
+    monkeypatch.delenv("EL_MISSING", raising=False)
+    with pytest.raises(RuntimeError, match="EL_MISSING"):
+        env_list("EL_MISSING")
+
+
+def test_env_list_bad_cast_raises(monkeypatch):
+    monkeypatch.setenv("EL_PORTS", "80,nope")
+    with pytest.raises(RuntimeError, match="could not be cast"):
+        env_list("EL_PORTS", cast=int)
+
+
+# --------------------------------------------------------------------------- #
+# packaging / logging hygiene
+# --------------------------------------------------------------------------- #
+
+
+def test_package_ships_py_typed():
+    """PEP 561 marker must be shipped so downstream type-checking sees the hints."""
+    import configplusplus
+
+    marker = pathlib.Path(configplusplus.__file__).parent / "py.typed"
+    assert marker.exists()
+
+
+def test_safe_load_envs_verbose_preserves_caller_sinks(tmp_path, capsys):
+    """A verbose call must remove only its own sink, not the caller's."""
+    from loggerplusplus import formats, loggerplusplus
+
+    (tmp_path / ".env").write_text("SLE_KEEP=1\n")
+
+    caller_sink = loggerplusplus.add(
+        sink=sys.stdout, level="DEBUG", format=formats.ShortFormat()
+    )
+    try:
+        capsys.readouterr()  # clear
+        safe_load_envs(tmp_path / ".env", verbose=True)
+
+        # The caller's own sink must still be installed and emitting.
+        loggerplusplus.bind(identifier="CALLER").info("still-here")
+        assert "still-here" in capsys.readouterr().out
+    finally:
+        loggerplusplus.remove(caller_sink)

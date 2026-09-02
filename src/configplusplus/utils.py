@@ -38,8 +38,9 @@ def safe_load_envs(path: str | pathlib.Path = ".env", verbose: bool = True) -> b
         ✅ Loaded environment file: .env
         True
     """
+    sink_id = None
     if verbose:
-        loggerplusplus.add(
+        sink_id = loggerplusplus.add(
             sink=sys.stdout,
             level="DEBUG",
             format=lpp_formats.ShortFormat(),
@@ -79,8 +80,9 @@ def safe_load_envs(path: str | pathlib.Path = ".env", verbose: bool = True) -> b
                         f"⚠️ Failed to load environment file: {env_file}"
                     )
 
-    if verbose:
-        loggerplusplus.remove()
+    # Remove only the sink we added — never touch the caller's other sinks.
+    if sink_id is not None:
+        loggerplusplus.remove(sink_id)
 
     return loaded_any
 
@@ -124,7 +126,13 @@ def env(
     if cast is bool and isinstance(val, str):
         return val.strip().lower() not in {"false", "0", "no", ""}
 
-    return cast(val)
+    try:
+        return cast(val)
+    except (ValueError, TypeError) as exc:
+        cast_name = getattr(cast, "__name__", repr(cast))
+        raise RuntimeError(
+            f"env var {key}={val!r} could not be cast with {cast_name}: {exc}"
+        ) from exc
 
 
 def env_optional(key: str, *, default: Any = None, cast: type = str) -> Any:
@@ -146,3 +154,58 @@ def env_optional(key: str, *, default: Any = None, cast: type = str) -> Any:
         False
     """
     return env(key, default=default, cast=cast, required=False)
+
+
+def env_list(
+    key: str,
+    *,
+    default: list[Any] | None = None,
+    sep: str = ",",
+    cast: type = str,
+    required: bool = True,
+) -> list[Any]:
+    """
+    Read a delimited environment variable as a list.
+
+    Splits on ``sep``, strips whitespace, drops empty items, and casts each one.
+
+    Args:
+        key: Environment variable name
+        default: Value returned when the variable is unset (default: None)
+        sep: Item separator (default: ",")
+        cast: Type applied to each item (default: str)
+        required: Raise if unset and no default is provided (default: True)
+
+    Returns:
+        List of cast items; ``default`` when unset and a default is given; an
+        empty list when unset, optional and no default.
+
+    Raises:
+        RuntimeError: If required and unset with no default, or if an item
+            cannot be cast.
+
+    Example:
+        > env_list("ALLOWED_HOSTS")        # "a, b ,c" -> ["a", "b", "c"]
+        > env_list("PORTS", cast=int)      # "80,443"  -> [80, 443]
+    """
+    raw = os.getenv(key)
+    if raw is None:
+        if default is not None:
+            return default
+        if required:
+            raise RuntimeError(f"missing required env var {key}")
+        return []
+
+    result: list[Any] = []
+    for item in raw.split(sep):
+        item = item.strip()
+        if not item:
+            continue
+        try:
+            result.append(cast(item))
+        except (ValueError, TypeError) as exc:
+            cast_name = getattr(cast, "__name__", repr(cast))
+            raise RuntimeError(
+                f"env var {key} item {item!r} could not be cast with {cast_name}: {exc}"
+            ) from exc
+    return result
