@@ -78,6 +78,25 @@ DATA_DIR = env("DATA_DIR", cast=pathlib.Path)  # "/var/data" -> Path("/var/data"
 ALLOWED_HOSTS = env("ALLOWED_HOSTS", default="").split(",")
 ```
 
+### Optional Values
+
+`env_optional()` is a convenience wrapper around `env(..., required=False)` — it never
+raises, it just returns `default` when the variable is unset:
+
+```python
+from configplusplus import env_optional
+
+# Returns None if unset, no exception raised
+FEATURE_FLAG = env_optional("FEATURE_FLAG")
+
+# With a default value
+LOG_LEVEL = env_optional("LOG_LEVEL", default="INFO")
+
+# With type casting, same rules as env()
+MAX_WORKERS = env_optional("MAX_WORKERS", cast=int, default=4)
+ENABLE_CACHE = env_optional("ENABLE_CACHE", cast=bool, default=True)
+```
+
 ### Validation
 
 ```python
