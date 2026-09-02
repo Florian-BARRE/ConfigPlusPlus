@@ -104,7 +104,7 @@ jobs:
 
       - name: Publish to TestPyPI
         if: steps.resolve.outputs.target == 'testpypi'
-        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.2  # Docker action: pinned by version tag, not commit SHA (no per-SHA image)
         with:
           packages-dir: dist/
           repository-url: https://test.pypi.org/legacy/
@@ -112,7 +112,7 @@ jobs:
 
       - name: Publish to PyPI
         if: steps.resolve.outputs.target == 'pypi'
-        uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
+        uses: pypa/gh-action-pypi-publish@v1.14.2  # Docker action: pinned by version tag, not commit SHA (no per-SHA image)
         with:
           packages-dir: dist/
           print-hash: true
