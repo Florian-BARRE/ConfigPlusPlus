@@ -220,6 +220,67 @@ def test_config_meta_repr_deterministic():
     assert pos_aaa < pos_mmm < pos_zzz
 
 
+def test_to_dict_raw_by_default():
+    """to_dict() returns raw values (including secrets) by default."""
+    assert SampleConfig.to_dict()["SECRET_API_KEY"] == "secret123456789"
+
+
+def test_to_dict_mask_hides_secrets():
+    """to_dict(mask=True) masks sensitive values but keeps the rest raw."""
+    masked = SampleConfig.to_dict(mask=True)
+
+    assert masked["DATABASE_HOST"] == "localhost"
+    assert "secret123456789" not in str(masked["SECRET_API_KEY"])
+    assert "hidden" in str(masked["SECRET_API_KEY"]).lower()
+
+
+def test_to_dict_aggregates_inherited_fields():
+    """A config subclass inherits its parents' UPPERCASE fields."""
+
+    class Parent(ConfigBase):
+        DATABASE_HOST = "localhost"
+
+    class Child(Parent):
+        DATABASE_PORT = 5432
+
+    config_dict = Child.to_dict()
+    assert config_dict["DATABASE_HOST"] == "localhost"
+    assert config_dict["DATABASE_PORT"] == 5432
+
+
+def test_to_dict_child_overrides_parent():
+    """A child value overrides a parent value of the same name."""
+
+    class Parent(ConfigBase):
+        VALUE = "parent"
+
+    class Child(Parent):
+        VALUE = "child"
+
+    assert Child.to_dict()["VALUE"] == "child"
+
+
+def test_custom_sensitive_keyword_masks():
+    """A subclass can extend the sensitive-keyword set."""
+
+    class CustomConfig(ConfigBase):
+        _sensitive_keywords = ConfigBase._sensitive_keywords + ("PRIVATE",)
+        PRIVATE_DATA = "supersecretvalue"
+        PLAIN_DATA = "visible"
+
+    # The knob itself must not appear as a config field.
+    assert "_sensitive_keywords" not in CustomConfig.to_dict()
+
+    masked = CustomConfig.to_dict(mask=True)
+    assert "supersecretvalue" not in str(masked["PRIVATE_DATA"])
+    assert masked["PLAIN_DATA"] == "visible"
+
+
+def test_default_keywords_not_masked_when_not_extended():
+    """The default keyword set still applies to plain ConfigBase subclasses."""
+    assert "hidden" in str(SampleConfig.to_dict(mask=True)["SECRET_API_KEY"]).lower()
+
+
 def test_config_meta_multiple_groups():
     """Test configuration with multiple groups."""
 

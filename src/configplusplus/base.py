@@ -2,8 +2,9 @@
 Base classes for configuration management with beautiful display
 """
 
-import pathlib
 from typing import Any
+
+from configplusplus import _display
 
 
 class ConfigMeta(type):
@@ -16,16 +17,35 @@ class ConfigMeta(type):
     - Secret masking for sensitive values
     """
 
-    def to_dict(cls) -> dict[str, Any]:
+    def to_dict(cls, *, mask: bool = False) -> dict[str, Any]:
         """
         Return all UPPERCASE, non-callable attributes as a dict.
+
+        Attributes are collected across the whole MRO, so a config subclass
+        inherits the UPPERCASE fields of its parents (a child value overrides
+        a parent value of the same name).
+
+        Args:
+            mask: When True, sensitive values are masked (safe to log). When
+                False (default), raw values are returned.
 
         Returns:
             Dictionary containing all configuration values
         """
-        return {
-            k: v for k, v in cls.__dict__.items() if k.isupper() and not callable(v)
-        }
+        result: dict[str, Any] = {}
+        for klass in reversed(cls.__mro__):
+            for k, v in vars(klass).items():
+                if k.isupper() and not k.startswith("_") and not callable(v):
+                    result[k] = v
+
+        if mask:
+            keywords = getattr(
+                cls, "_sensitive_keywords", _display.DEFAULT_SENSITIVE_KEYWORDS
+            )
+            result = {
+                k: _display.mask_if_secret(k, v, keywords) for k, v in result.items()
+            }
+        return result
 
     def _mask_if_secret(cls, key: str, value: Any) -> Any:
         """
@@ -38,19 +58,10 @@ class ConfigMeta(type):
         Returns:
             Masked value if sensitive, original value otherwise
         """
-        if value is None:
-            return None
-
-        key_upper = key.upper()
-        sensitive_keywords = ("SECRET", "API_KEY", "PASSWORD", "TOKEN", "CREDENTIAL")
-
-        if any(keyword in key_upper for keyword in sensitive_keywords):
-            s = str(value)
-            if len(s) <= 6:
-                return "***hidden***"
-            return f"{s[:3]}…{s[-2:]} (hidden)"
-
-        return value
+        keywords = getattr(
+            cls, "_sensitive_keywords", _display.DEFAULT_SENSITIVE_KEYWORDS
+        )
+        return _display.mask_if_secret(key, value, keywords)
 
     def _grouped_items(cls) -> dict[str, list]:
         """
@@ -91,18 +102,10 @@ class ConfigMeta(type):
             lines.append(f"▶ {prefix}")
             items = groups[prefix]
 
-            if not items:
-                continue
-
             max_key_len = max(len(k) for k, _ in items)
 
             for key, value in sorted(items, key=lambda kv: kv[0]):
-                display_value = cls._mask_if_secret(key, value)
-
-                # Make paths nicer to read
-                if isinstance(display_value, pathlib.Path):
-                    display_value = str(display_value.resolve())
-
+                display_value = _display.format_value(cls._mask_if_secret(key, value))
                 lines.append(f"    {key.ljust(max_key_len)} = {display_value!r}")
 
         lines.append("")  # final blank line
@@ -125,7 +128,15 @@ class ConfigBase(metaclass=ConfigMeta):
             SECRET_API_KEY = "secret123"
 
         print(MyConfig)  # Pretty formatted output
+
+    Extending the masked keywords (extend only, never narrow):
+        class MyConfig(ConfigBase):
+            _sensitive_keywords = ConfigBase._sensitive_keywords + ("PRIVATE_KEY",)
     """
+
+    # Sensitive-keyword set used by the display/masking layer. Override in a
+    # subclass by extending this tuple; never remove a keyword.
+    _sensitive_keywords: tuple[str, ...] = _display.DEFAULT_SENSITIVE_KEYWORDS
 
     def __repr__(self) -> str:
         """Instance-level repr uses the class pretty repr."""
