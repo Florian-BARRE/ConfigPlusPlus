@@ -95,6 +95,23 @@ env_optional("KEY")                           # None if unset
 env_optional("KEY", default="value")          # Default if unset
 env_optional("KEY", cast=int, default=0)      # Cast + default
 env_optional("KEY", cast=bool, default=False) # Bool with default
+
+# Read a delimited variable as a list
+env_list("HOSTS")                             # "a, b ,c" -> ["a", "b", "c"]
+env_list("PORTS", cast=int)                   # "80,443"  -> [80, 443]
+env_list("PATHS", sep=":")                    # custom separator
+env_list("HOSTS", required=False)             # [] if unset
+```
+
+## Serializing / masking
+
+```python
+MyConfig.to_dict()             # raw values (read config here)
+MyConfig.to_dict(mask=True)    # secrets masked (safe to log)
+
+# Extend the masked keywords per class (extend only, never narrow):
+class MyConfig(EnvConfigLoader):
+    _sensitive_keywords = EnvConfigLoader._sensitive_keywords + ("PRIVATE_KEY",)
 ```
 
 ## Boolean Casting
