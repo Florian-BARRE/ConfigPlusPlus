@@ -97,6 +97,33 @@ MAX_WORKERS = env_optional("MAX_WORKERS", cast=int, default=4)
 ENABLE_CACHE = env_optional("ENABLE_CACHE", cast=bool, default=True)
 ```
 
+### List Values
+
+`env_list()` reads a delimited variable as a list — it splits on `sep`, strips whitespace,
+drops empty items and casts each one:
+
+```python
+from configplusplus import env_list
+
+ALLOWED_HOSTS = env_list("ALLOWED_HOSTS")           # "a, b ,c" -> ["a", "b", "c"]
+PORTS = env_list("PORTS", cast=int)                 # "80,443"  -> [80, 443]
+PATHS = env_list("PATHS", sep=":")                  # custom separator
+TAGS = env_list("TAGS", required=False)             # [] when unset
+```
+
+### Serializing and Masking
+
+`to_dict()` returns **raw** values so you can read configuration programmatically. When you
+log the whole config, use `to_dict(mask=True)` so secrets are masked. Extend the masked
+keyword set per class (extend only, never narrow):
+
+```python
+class MyConfig(EnvConfigLoader):
+    _sensitive_keywords = EnvConfigLoader._sensitive_keywords + ("PRIVATE_KEY",)
+
+logger.info(MyConfig.to_dict(mask=True))   # secrets hidden
+```
+
 ### Validation
 
 ```python

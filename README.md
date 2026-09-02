@@ -107,6 +107,8 @@ env(key: str, *, default=None, cast=str, required=True)
 | `required` | `True`  | Raise `RuntimeError` if unset **and** no default is provided     |
 
 `env_optional(key, *, default=None, cast=str)` is the shorthand for `required=False`.
+`env_list(key, *, default=None, sep=",", cast=str, required=True)` reads a delimited value as
+a list (`"a, b ,c"` → `["a", "b", "c"]`; `cast=int` on `"80,443"` → `[80, 443]`).
 
 **Boolean casting** (`cast=bool`) — these strings are `False`; everything else is `True`:
 
@@ -173,6 +175,15 @@ SECRET_API_KEY = "sk_live_abc123xyz789"   # shown as 'sk_…89 (hidden)'
 PASSWORD       = "short"                   # shown as '***hidden***'   (≤ 6 chars)
 ```
 
+Masking applies to the display. `to_dict()` returns **raw** values (so you can read them);
+use `to_dict(mask=True)` when logging the whole config. Extend the keyword set per class
+(extend only, never narrow):
+
+```python
+class MyConfig(EnvConfigLoader):
+    _sensitive_keywords = EnvConfigLoader._sensitive_keywords + ("PRIVATE_KEY",)
+```
+
 ---
 
 ### Custom validation
@@ -222,7 +233,11 @@ same way.
 | `ConfigMeta`       | metaclass | Owns `to_dict`, grouping and masking                           |
 | `env`              | function  | Read one variable with casting / default / required            |
 | `env_optional`     | function  | `env(..., required=False)` shorthand                           |
+| `env_list`         | function  | Read a delimited variable as a typed list                      |
 | `safe_load_envs`   | function  | Load `.env` file(s) from a path or directory, with logging     |
+
+The package ships a PEP 561 `py.typed` marker — its type hints are visible to downstream
+type-checkers.
 
 ---
 
