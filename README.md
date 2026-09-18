@@ -12,7 +12,7 @@ to be shared across every service in a stack.
 [![Python](https://img.shields.io/pypi/pyversions/configplusplus?color=4c6ef5)](https://pypi.org/project/configplusplus/)
 [![CI](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/ci.yml/badge.svg)](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/ci.yml)
 [![CodeQL](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/codeql.yml/badge.svg)](https://github.com/Florian-BARRE/ConfigPlusPlus/actions/workflows/codeql.yml)
-[![License](https://img.shields.io/badge/license-MIT-4c6ef5)](LICENSE)
+[![License](https://img.shields.io/badge/license-MIT-4c6ef5)](https://github.com/Florian-BARRE/ConfigPlusPlus/blob/main/LICENSE)
 
 </div>
 
@@ -186,6 +186,42 @@ class MyConfig(EnvConfigLoader):
 
 ---
 
+### Display formats
+
+`print(config)` always uses the boxed format by default, but `render()` can produce four more —
+`table`, `json`, `dotenv`, `flat` — all masked by default. **The call is class-level on
+`EnvConfigLoader`/`ConfigBase`, instance-level on `YamlConfigLoader`** (it mirrors the existing
+`__repr__` split):
+
+```python
+AppConfig.render(fmt="table")     # class-level — env/class configs
+config.render(fmt="json")         # instance-level — YAML configs
+
+AppConfig.render(fmt="json")
+# {
+#   "DATABASE_HOST": "localhost",
+#   "SECRET_API_KEY": "sk_…89 (hidden)"
+# }
+
+AppConfig.render(fmt="dotenv")
+# DATABASE_HOST=localhost
+# SECRET_API_KEY="sk_…89 (hidden)"
+
+AppConfig.render(fmt="table", mask=False)  # deliberate raw dump — never log this
+```
+
+Set a class's default output format once with `_display_format` (falls back to `"boxed"`):
+
+```python
+class MyConfig(EnvConfigLoader):
+    _display_format = "flat"   # now print(MyConfig) renders flat instead of boxed
+```
+
+`fmt` accepts one of `configplusplus.DISPLAY_FORMATS` — `"boxed"`, `"table"`,
+`"json"`, `"dotenv"`, `"flat"` — and raises `ValueError` on anything else.
+
+---
+
 ### Custom validation
 
 ```python
@@ -214,12 +250,12 @@ graph TD
 
     Meta --> Base
     Base --> Env
-    Meta -. "duplicates mask + __repr__" .-> Yaml
+    Meta -. "duplicates mask + render" .-> Yaml
 ```
 
-The display lives on the **metaclass**, which is why `print(MyConfig)` works on the class with no
-instance. `YamlConfigLoader` intentionally re-implements masking so it can display instances the
-same way.
+The display lives on the **metaclass**, which is why `print(MyConfig)` and `MyConfig.render(...)`
+work on the class with no instance. `YamlConfigLoader` intentionally re-implements masking and
+`render()` so it can display instances the same way — call it as `config.render(...)`.
 
 ---
 
@@ -230,7 +266,7 @@ same way.
 | `EnvConfigLoader`  | class     | Static, class-based config read from environment variables     |
 | `YamlConfigLoader` | class     | Instance-based config read from a YAML file                    |
 | `ConfigBase`       | class     | Base for custom loaders; delegates display to `ConfigMeta`     |
-| `ConfigMeta`       | metaclass | Owns `to_dict`, grouping and masking                           |
+| `ConfigMeta`       | metaclass | Owns `to_dict`, grouping, masking and `render` (class-level)   |
 | `env`              | function  | Read one variable with casting / default / required            |
 | `env_optional`     | function  | `env(..., required=False)` shorthand                           |
 | `env_list`         | function  | Read a delimited variable as a typed list                      |
@@ -245,10 +281,10 @@ type-checkers.
 
 | Guide                              | Contents                                        |
 |------------------------------------|-------------------------------------------------|
-| [Installation](docs/INSTALL.md)    | Install options and requirements                |
-| [Usage](docs/USAGE.md)             | Full walkthrough of every feature               |
-| [Reference](docs/REFERENCE.md)     | Concise API cheat-sheet                         |
-| [`examples/`](examples/)           | Runnable end-to-end scripts                     |
+| [Installation](https://github.com/Florian-BARRE/ConfigPlusPlus/blob/main/docs/INSTALL.md)    | Install options and requirements                |
+| [Usage](https://github.com/Florian-BARRE/ConfigPlusPlus/blob/main/docs/USAGE.md)             | Full walkthrough of every feature               |
+| [Reference](https://github.com/Florian-BARRE/ConfigPlusPlus/blob/main/docs/REFERENCE.md)     | Concise API cheat-sheet                         |
+| [`examples/`](https://github.com/Florian-BARRE/ConfigPlusPlus/tree/main/examples)            | Runnable end-to-end scripts                     |
 
 ---
 
@@ -283,4 +319,4 @@ and merging that PR tags the release and publishes to PyPI via Trusted Publishin
 
 ### License
 
-[MIT](LICENSE) © Florian BARRE
+[MIT](https://github.com/Florian-BARRE/ConfigPlusPlus/blob/main/LICENSE) © Florian BARRE

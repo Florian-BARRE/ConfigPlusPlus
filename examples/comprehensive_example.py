@@ -230,6 +230,9 @@ def main() -> None:
     logger.info("Loading infrastructure configuration...")
     print(InfraConfig)
 
+    # Other display formats (class-level; secrets stay masked by default)
+    print(InfraConfig.render(fmt="table"))
+
     # Validate infrastructure configuration
     try:
         InfraConfig.validate()
@@ -243,6 +246,7 @@ def main() -> None:
     try:
         app_config = AppConfig("config.yaml")
         print(app_config)
+        print(app_config.render(fmt="json"))  # instance-level for YAML configs
         logger.success("✅ Application configuration loaded")
     except Exception as e:
         logger.error(f"❌ Failed to load application configuration: {e}")
