@@ -341,3 +341,80 @@ def test_yaml_non_mapping_raises(tmp_path):
 
     with pytest.raises(TypeError, match="mapping"):
         C(listy)
+
+
+def test_yaml_render_all_formats(sample_yaml_file):
+    """render() produces output for every advertised format."""
+    from configplusplus import _display
+
+    config = SimpleYamlConfig(sample_yaml_file)
+    for fmt in _display.DISPLAY_FORMATS:
+        out = config.render(fmt=fmt)
+        assert "database_host" in out
+
+
+def test_yaml_render_invalid_format(sample_yaml_file):
+    """An unknown format raises ValueError."""
+    config = SimpleYamlConfig(sample_yaml_file)
+    with pytest.raises(ValueError, match="Unknown display format"):
+        config.render(fmt="nope")
+
+
+def test_yaml_render_collapses_containers_in_table(sample_yaml_file):
+    """List/dict attributes are summarised as [N items]/{N keys} in any format."""
+
+    class ListYamlConfig(YamlConfigLoader):
+        def __post_init__(self) -> None:
+            self.features = self._raw_config["features"]
+
+    config = ListYamlConfig(sample_yaml_file)
+    out = config.render(fmt="table")
+    assert "[2 items]" in out
+
+
+def test_yaml_display_format_drives_repr(sample_yaml_file):
+    """_display_format changes what repr()/print() produces."""
+
+    class FlatYamlConfig(SimpleYamlConfig):
+        _display_format = "flat"
+
+    config = FlatYamlConfig(sample_yaml_file)
+    out = repr(config)
+    assert "╔" not in out
+    assert "database_host" in out
+
+
+def test_yaml_render_masks_secret(sample_yaml_file):
+    """Secrets stay masked across formats."""
+
+    class SecretYamlConfig(YamlConfigLoader):
+        def __post_init__(self) -> None:
+            self.api_secret_key = self._raw_config["api"]["secret_key"]
+
+    config = SecretYamlConfig(sample_yaml_file)
+    for fmt in ("table", "json", "dotenv", "flat"):
+        assert "secret123" not in config.render(fmt=fmt)
+
+
+def test_yaml_default_boxed_snapshot(sample_yaml_file):
+    """Lock the exact default boxed output for the YAML loader."""
+
+    class Snap(YamlConfigLoader):
+        def __post_init__(self) -> None:
+            self.db_host = self._raw_config["database"]["host"]
+            self.api_token = "tok-abcdef123456"
+
+    config = Snap(sample_yaml_file)
+    out = repr(config).replace(str(config.config_path), "<PATH>")
+    expected = (
+        "\n\n"
+        "╔════════════════════════════════════════════╗\n"
+        "║                    SNAP                    ║\n"
+        "╚════════════════════════════════════════════╝\n"
+        "\n"
+        "▶ Config Path: <PATH>\n"
+        "\n"
+        "  api_token = 'tok…56 (hidden)'\n"
+        "  db_host   = 'localhost'\n"
+    )
+    assert out == expected

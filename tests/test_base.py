@@ -4,6 +4,8 @@ Tests for base configuration classes
 
 import pathlib
 
+import pytest
+
 from configplusplus.base import ConfigBase
 
 
@@ -302,3 +304,83 @@ def test_config_meta_multiple_groups():
     assert len(groups["DATABASE"]) == 2
     assert len(groups["API"]) == 2
     assert len(groups["REDIS"]) == 2
+
+
+def test_config_meta_render_all_formats():
+    """render() produces output for every advertised format."""
+    from configplusplus import _display
+
+    for fmt in _display.DISPLAY_FORMATS:
+        out = SampleConfig.render(fmt=fmt)
+        assert "DATABASE_HOST" in out
+
+
+def test_config_meta_render_masks_in_every_format():
+    """The secret is masked whatever the format — masking is load-bearing."""
+    from configplusplus import _display
+
+    for fmt in _display.DISPLAY_FORMATS:
+        out = SampleConfig.render(fmt=fmt)
+        assert "secret123456789" not in out
+
+
+def test_config_meta_render_invalid_format():
+    """An unknown format raises ValueError."""
+    with pytest.raises(ValueError, match="Unknown display format"):
+        SampleConfig.render(fmt="nope")
+
+
+def test_config_meta_render_mask_false_exposes_raw():
+    """mask=False is a deliberate raw dump and shows the secret."""
+    out = SampleConfig.render(fmt="flat", mask=False)
+    assert "secret123456789" in out
+
+
+def test_config_meta_display_format_drives_repr():
+    """_display_format changes what repr()/print() produces."""
+
+    class TableConfig(ConfigBase):
+        _display_format = "table"
+        DATABASE_HOST = "localhost"
+
+    out = repr(TableConfig)
+    assert "┌" in out and "KEY" in out
+
+
+def test_config_meta_default_boxed_snapshot():
+    """Lock the exact default boxed output — every app logs this at startup."""
+
+    class SnapConfig(ConfigBase):
+        DATABASE_HOST = "localhost"
+        DATABASE_PORT = 5432
+        API_KEY_SECRET = "sk-abcdef123456"
+
+    expected = (
+        "\n\n"
+        "╔════════════════════════════════════════════╗\n"
+        "║                 SNAPCONFIG                 ║\n"
+        "╚════════════════════════════════════════════╝\n"
+        "\n"
+        "▶ API\n"
+        "    API_KEY_SECRET = 'sk-…56 (hidden)'\n"
+        "\n"
+        "▶ DATABASE\n"
+        "    DATABASE_HOST = 'localhost'\n"
+        "    DATABASE_PORT = 5432\n"
+    )
+    assert repr(SnapConfig) == expected
+
+
+def test_config_meta_empty_boxed_snapshot():
+    """An empty config prints only the frame (historical byte-for-byte output)."""
+
+    class EmptyBoxConfig(ConfigBase):
+        pass
+
+    expected = (
+        "\n\n"
+        "╔════════════════════════════════════════════╗\n"
+        "║               EMPTYBOXCONFIG               ║\n"
+        "╚════════════════════════════════════════════╝\n"
+    )
+    assert repr(EmptyBoxConfig) == expected

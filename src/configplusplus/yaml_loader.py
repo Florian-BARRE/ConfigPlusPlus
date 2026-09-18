@@ -11,60 +11,37 @@ from loggerplusplus import loggerplusplus
 from configplusplus import _display
 
 
+def _collapse_container(value: Any) -> Any:
+    """Summarise list/dict values as ``[N items]`` / ``{N keys}`` for display."""
+    if isinstance(value, list):
+        return f"[{len(value)} items]"
+    if isinstance(value, dict):
+        return f"{{{len(value)} keys}}"
+    return value
+
+
 class YamlConfigLoader:
     """
     Base class for YAML file based configuration.
 
-    This class requires instantiation with a path to a YAML file.
-    The YAML file is loaded in __init__, then __post_init__ is called
-    for custom parsing logic.
-
-    Features:
-    - Automatic YAML loading
-    - Post-initialization hook for custom parsing
-    - Access to raw config data
-    - Pretty printing support
-
-    Usage:
-        from configplusplus import YamlConfigLoader
-
-        class MyYamlConfig(YamlConfigLoader):
-            def __post_init__(self) -> None:
-                # Parse the loaded YAML data
-                self.database_host = self._raw_config["database"]["host"]
-                self.database_port = self._raw_config["database"]["port"]
-
-                # Parse nested structures
-                self.features = [
-                    Feature(**feature_data)
-                    for feature_data in self._raw_config["features"]
-                ]
-
-        # Instantiate with path
-        config = MyYamlConfig("config.yaml")
-        print(config.database_host)
-        print(config)  # Pretty formatted output
-
-    YAML File Example:
-        database:
-          host: localhost
-          port: 5432
-
-        features:
-          - name: search
-            enabled: true
-          - name: export
-            enabled: false
+    Instantiated with a path: the file is loaded in ``__init__``, then
+    ``__post_init__`` runs for custom parsing. Supports dot-notation access
+    (``get``/``has``), ``to_dict(mask=...)`` and multi-format display via
+    ``render``. See ``examples/yaml_config_example.py`` for a full example.
 
     Attributes:
-        config_path: Path to the loaded YAML file
-        _raw_config: Raw dictionary loaded from YAML
-        logger: LoggerPlusPlus logger instance
+        config_path: Path to the loaded YAML file.
+        _raw_config: Raw dictionary loaded from YAML.
+        logger: LoggerPlusPlus logger instance.
     """
 
     # Sensitive-keyword set used by the display/masking layer. Extend it in a
     # subclass (never narrow it); masking is a safety feature.
     _sensitive_keywords: tuple[str, ...] = _display.DEFAULT_SENSITIVE_KEYWORDS
+
+    # Default format used by print()/repr(). Override in a subclass with any of
+    # configplusplus.DISPLAY_FORMATS, or pass fmt= to render() one-off.
+    _display_format: str = "boxed"
 
     def __init__(self, config_path: str | pathlib.Path) -> None:
         """
@@ -229,42 +206,53 @@ class YamlConfigLoader:
         """
         return _display.mask_if_secret(key, value, self._sensitive_keywords)
 
-    def __repr__(self) -> str:
+    def render(self, *, fmt: str | None = None, mask: bool = True) -> str:
         """
-        Pretty representation of the configuration.
+        Render the configuration as a string in the requested format.
+
+        Parsed list/dict attributes are collapsed to ``[N items]`` / ``{N keys}``
+        (the YAML loader holds arbitrary parsed objects, not flat scalars). Every
+        format — ``json``/``dotenv`` included — is a masked display rendering, not
+        a re-loadable export of the raw file.
+
+        Args:
+            fmt: One of ``configplusplus.DISPLAY_FORMATS``
+                (``"boxed"``, ``"table"``, ``"json"``, ``"dotenv"``, ``"flat"``).
+                Defaults to the instance ``_display_format`` (``"boxed"``).
+            mask: When True (default), sensitive values are masked — keep it True
+                for anything that may be logged. Pass False only for a raw dump.
 
         Returns:
-            Formatted string with configuration display
+            The formatted configuration string.
+
+        Raises:
+            ValueError: If ``fmt`` is not a known display format.
         """
-        lines = ["\n"]
-        lines.append("╔════════════════════════════════════════════╗")
-        lines.append(f"║  {self.__class__.__name__.upper().center(40)}  ║")
-        lines.append("╚════════════════════════════════════════════╝")
-        lines.append("")
-        lines.append(f"▶ Config Path: {self.config_path}")
-        lines.append("")
+        chosen = fmt if fmt is not None else self._display_format
+        items = [
+            (
+                key,
+                _collapse_container(
+                    _display.format_value(
+                        self._mask_if_secret(key, value) if mask else value
+                    )
+                ),
+            )
+            for key, value in self.to_dict().items()
+        ]
+        return _display.render(
+            self.__class__.__name__,
+            items,
+            fmt=chosen,
+            subtitle=f"Config Path: {self.config_path}",
+            grouped=False,
+            empty_marker="(No configuration loaded)",
+        )
 
-        config_dict = self.to_dict()
-        if not config_dict:
-            lines.append("  (No configuration loaded)")
-        else:
-            max_key_len = max(len(k) for k in config_dict.keys())
-
-            for key in sorted(config_dict.keys()):
-                value = config_dict[key]
-                display_value = _display.format_value(self._mask_if_secret(key, value))
-
-                # Handle lists/dicts - show count
-                if isinstance(display_value, list):
-                    display_value = f"[{len(display_value)} items]"
-                elif isinstance(display_value, dict):
-                    display_value = f"{{{len(display_value)} keys}}"
-
-                lines.append(f"  {key.ljust(max_key_len)} = {display_value!r}")
-
-        lines.append("")
-        return "\n".join(lines)
+    def __repr__(self) -> str:
+        """Pretty representation of the configuration in its ``_display_format``."""
+        return self.render()
 
     def __str__(self) -> str:
         """String representation uses the pretty repr."""
-        return self.__repr__()
+        return self.render()

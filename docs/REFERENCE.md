@@ -44,6 +44,7 @@ class Config(EnvConfigLoader):
 # Usage
 print(Config.HOST)
 print(Config)  # Pretty output
+Config.render(fmt="table")  # class-level — other formats
 Config.validate()
 ```
 
@@ -73,6 +74,7 @@ class Config(YamlConfigLoader):
 config = Config("config.yaml")
 print(config.app_name)
 print(config)  # Pretty output
+config.render(fmt="json")  # instance-level — other formats
 ```
 
 ## Helper Functions
@@ -112,6 +114,31 @@ MyConfig.to_dict(mask=True)    # secrets masked (safe to log)
 # Extend the masked keywords per class (extend only, never narrow):
 class MyConfig(EnvConfigLoader):
     _sensitive_keywords = EnvConfigLoader._sensitive_keywords + ("PRIVATE_KEY",)
+```
+
+## Display Formats
+
+```python
+# configplusplus.DISPLAY_FORMATS = ("boxed", "table", "json", "dotenv", "flat")
+
+# Class-level for env/class configs — NOT available on an instance
+MyConfig.render(fmt="table")
+MyConfig.render(fmt="json")
+MyConfig.render(fmt="dotenv")
+MyConfig.render(fmt="flat")
+MyConfig.render(fmt="table", mask=False)   # raw dump — never log this
+
+# Instance-level for YAML configs — NOT available on the class
+config = MyConfig("config.yaml")
+config.render(fmt="table")
+config.render(fmt="json")
+
+# Default format used by print()/repr() — override per class (default "boxed")
+class MyConfig(EnvConfigLoader):
+    _display_format = "flat"
+
+# Unknown fmt raises ValueError
+MyConfig.render(fmt="xml")  # ValueError: Unknown display format 'xml'; choose from ...
 ```
 
 ## Boolean Casting

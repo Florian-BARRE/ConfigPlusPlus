@@ -64,10 +64,14 @@ def main() -> None:
     print("=" * 50)
 
     # Load configuration from YAML file
-    config = UiConfig("examples/config.yaml")
+    config = UiConfig("config.yaml")
 
     # Display the full configuration
     print(config)
+
+    # Other display formats (instance-level for YAML configs)
+    print('\n--- config.render(fmt="json") ---')
+    print(config.render(fmt="json"))
 
     # Access parsed values
     print("\n--- Application Settings ---")

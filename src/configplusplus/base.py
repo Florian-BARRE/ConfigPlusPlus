@@ -73,43 +73,52 @@ class ConfigMeta(type):
         Returns:
             Dictionary mapping prefixes to list of (key, value) tuples
         """
-        items = cls.to_dict()
-        groups: dict[str, list] = {}
+        return _display._group_by_prefix(list(cls.to_dict().items()))
 
-        for k, v in items.items():
-            prefix = k.split("_", 1)[0]  # e.g., QDRANT_URL -> QDRANT
-            groups.setdefault(prefix, []).append((k, v))
+    def render(cls, *, fmt: str | None = None, mask: bool = True) -> str:
+        """
+        Render the configuration as a string in the requested format.
 
-        return groups
+        Fields are grouped by the prefix before the first underscore in the
+        ``boxed`` format; the other formats are flat.
+
+        Args:
+            fmt: One of ``configplusplus.DISPLAY_FORMATS``
+                (``"boxed"``, ``"table"``, ``"json"``, ``"dotenv"``, ``"flat"``).
+                Defaults to the class-level ``_display_format`` (``"boxed"``).
+            mask: When True (default), sensitive values are masked — keep it True
+                for anything that may be logged. Pass False only for a deliberate
+                raw dump.
+
+        Returns:
+            The formatted configuration string.
+
+        Raises:
+            ValueError: If ``fmt`` is not a known display format.
+        """
+        chosen = fmt if fmt is not None else getattr(cls, "_display_format", "boxed")
+        keywords = getattr(
+            cls, "_sensitive_keywords", _display.DEFAULT_SENSITIVE_KEYWORDS
+        )
+        items = [
+            (
+                key,
+                _display.format_value(
+                    _display.mask_if_secret(key, value, keywords) if mask else value
+                ),
+            )
+            for key, value in cls.to_dict().items()
+        ]
+        return _display.render(cls.__name__, items, fmt=chosen, grouped=True)
 
     def __repr__(cls) -> str:
         """
-        Pretty multi-line representation of the configuration.
+        Pretty representation of the configuration in its ``_display_format``.
 
         Returns:
-            Formatted string with grouped configuration display
+            Formatted string produced by :meth:`render`.
         """
-        lines = ["\n"]
-        lines.append("╔════════════════════════════════════════════╗")
-        lines.append(f"║  {cls.__name__.upper().center(40)}  ║")
-        lines.append("╚════════════════════════════════════════════╝")
-
-        groups = cls._grouped_items()
-
-        # Sort groups by name for deterministic output
-        for prefix in sorted(groups.keys()):
-            lines.append("")  # blank line
-            lines.append(f"▶ {prefix}")
-            items = groups[prefix]
-
-            max_key_len = max(len(k) for k, _ in items)
-
-            for key, value in sorted(items, key=lambda kv: kv[0]):
-                display_value = _display.format_value(cls._mask_if_secret(key, value))
-                lines.append(f"    {key.ljust(max_key_len)} = {display_value!r}")
-
-        lines.append("")  # final blank line
-        return "\n".join(lines)
+        return ConfigMeta.render(cls)
 
 
 class ConfigBase(metaclass=ConfigMeta):
@@ -138,12 +147,15 @@ class ConfigBase(metaclass=ConfigMeta):
     # subclass by extending this tuple; never remove a keyword.
     _sensitive_keywords: tuple[str, ...] = _display.DEFAULT_SENSITIVE_KEYWORDS
 
+    # Default format used by print()/repr(). Override in a subclass with any of
+    # configplusplus.DISPLAY_FORMATS. For a one-off format, call the
+    # class-level render: MyConfig.render(fmt="table").
+    _display_format: str = "boxed"
+
     def __repr__(self) -> str:
         """Instance-level repr uses the class pretty repr."""
-        # Call the metaclass __repr__ directly
         return ConfigMeta.__repr__(type(self))
 
     def __str__(self) -> str:
         """Instance-level str uses the class pretty repr."""
-        # Call the metaclass __repr__ directly
         return ConfigMeta.__repr__(type(self))

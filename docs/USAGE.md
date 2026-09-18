@@ -163,7 +163,56 @@ config_dict = AppConfig.to_dict()
 
 # Pretty print
 print(AppConfig)  # Shows beautiful formatted output
+
+# Other formats, called on the CLASS for env/class configs
+print(AppConfig.render(fmt="table"))
+print(AppConfig.render(fmt="json"))
 ```
+
+### Display Formats
+
+`render()` produces the same data `print()` does, in one of five formats:
+`configplusplus.DISPLAY_FORMATS` = `"boxed"` (default), `"table"`, `"json"`,
+`"dotenv"`, `"flat"`. All formats mask secrets by default (`mask=False` for a deliberate raw
+dump — never log that).
+
+**The call is class-level for env/class configs, instance-level for YAML configs** — it
+mirrors the existing `__repr__` split, and there is intentionally no instance-level `render()`
+on `EnvConfigLoader`/`ConfigBase` (it would shadow the metaclass method):
+
+```python
+AppConfig.render(fmt="table")   # class-level: EnvConfigLoader / ConfigBase
+config.render(fmt="json")       # instance-level: YamlConfigLoader
+
+AppConfig.render(fmt="json")
+# {
+#   "DATABASE_HOST": "localhost",
+#   "SECRET_API_KEY": "sk_…89 (hidden)"
+# }
+
+AppConfig.render(fmt="dotenv")
+# DATABASE_HOST=localhost
+# SECRET_API_KEY="sk_…89 (hidden)"
+
+AppConfig.render(fmt="flat")
+# APPCONFIG
+#
+# DATABASE_HOST  = 'localhost'
+# SECRET_API_KEY = 'sk_…89 (hidden)'
+```
+
+Calling `AppConfig().render(...)` on an *instance* raises `AttributeError` — `render` lives on
+the metaclass, so it is only reachable through the class itself.
+
+Set the format `print()`/`repr()` use by default with the class attribute `_display_format`
+(defaults to `"boxed"`, applies to both loader types):
+
+```python
+class MyConfig(EnvConfigLoader):
+    _display_format = "flat"   # print(MyConfig) now renders flat, not boxed
+```
+
+An unknown `fmt` raises `ValueError`, listing the valid choices.
 
 ## YAML-Based Configuration
 
@@ -303,6 +352,10 @@ raw_data = config._raw_config
 
 # Convert to dict
 config_dict = config.to_dict()
+
+# Other display formats — called on the INSTANCE for YAML configs
+print(config.render(fmt="table"))
+print(config.render(fmt="dotenv"))
 ```
 
 ## Advanced Usage

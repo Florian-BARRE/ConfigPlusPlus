@@ -68,6 +68,10 @@ def main() -> None:
     # Display the full configuration
     print(RuntimeConfig)
 
+    # Other display formats (class-level; secrets stay masked by default)
+    print('\n--- render(fmt="table") ---')
+    print(RuntimeConfig.render(fmt="table"))
+
     # Access individual values
     print("\n--- Accessing Individual Values ---")
     print(f"Database Host: {RuntimeConfig.DATABASE_HOST}")
