@@ -24,7 +24,7 @@ classifiers = [
 dependencies = [
     "python-dotenv>=1.2.3,<2.0.0",
     "pyyaml>=6.0.3,<7.0.0",
-    "loggerplusplus>=1.0.5",
+    "loggerplusplus>=1.1.0",
 ]
 
 [project.urls]
