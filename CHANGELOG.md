@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/Florian-BARRE/ConfigPlusPlus/compare/configplusplus-v0.3.0...configplusplus-v0.4.0) (2026-09-18)
+
+
+### Features
+
+* configurable display formats (table/json/dotenv/flat) via render() ([#14](https://github.com/Florian-BARRE/ConfigPlusPlus/issues/14)) ([cb983eb](https://github.com/Florian-BARRE/ConfigPlusPlus/commit/cb983eb746b1d8b8e1b56fafb2d45c350981d065))
+
 ## [0.3.0](https://github.com/Florian-BARRE/ConfigPlusPlus/compare/configplusplus-v0.2.0...configplusplus-v0.3.0) (2026-09-02)
 
 
