@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Only PR runs are cancelled: a cancelled push run on main/develop would leave its commits
+  # unscanned by the secrets job.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -20,10 +22,11 @@ jobs:
   # Secret hygiene on every PR and push:
   #   1. No tracked secret file (`.env`, `*.env`, `.env.*`); only `*.example` templates allowed.
   #   2. gitleaks (pinned release binary, SHA-256 checked) on the commits brought by the PR /
-  #      push, not the whole history. A missing `before` commit (new branch or force-push)
-  #      falls back to the merge-base with main; an empty range falls back to the head commit
-  #      alone, so the scan never silently covers zero commits. Exceptions for documented fake
-  #      keys live in `.gitleaks.toml`.
+  #      push, not the whole history. A PR base commit missing from the clone falls back to the
+  #      merge-base with the PR's base branch; a missing push `before` commit (new branch or
+  #      force-push) falls back to the merge-base with main; an empty range falls back to the
+  #      head commit alone, so the scan never silently covers zero commits. Exceptions for
+  #      documented fake keys live in `.gitleaks.toml`.
   secrets:
     runs-on: ubuntu-latest
     permissions:
@@ -67,6 +70,7 @@ jobs:
           EVENT: ${{ github.event_name }}
           PR_BASE: ${{ github.event.pull_request.base.sha }}
           PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.base_ref }}
           PUSH_BEFORE: ${{ github.event.before }}
           PUSH_AFTER: ${{ github.sha }}
         run: |
@@ -78,7 +82,15 @@ jobs:
             if has_commit "$PR_BASE"; then
               range="${PR_BASE}..${PR_HEAD}"
             else
-              range=""
+              # Base commit not in the clone (e.g. base branch rewritten): scan what the PR adds
+              # since it left its base branch.
+              echo "PR base commit ${PR_BASE:-<empty>} not found: falling back to merge-base."
+              base="$(git merge-base "origin/${PR_BASE_REF}" "$PR_HEAD" 2>/dev/null || true)"
+              if [ -n "$base" ] && [ "$base" != "$PR_HEAD" ]; then
+                range="${base}..${PR_HEAD}"
+              else
+                range=""
+              fi
             fi
           else
             head="$PUSH_AFTER"
