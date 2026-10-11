@@ -212,11 +212,9 @@ __marimo__/
 
 .pt
 
-# Claude Code (local-only tooling — not versioned)
+# Claude Code local tooling (not versioned; CLAUDE.md is versioned)
 .claude/
 .mcp.json
-CLAUDE.md
-**/CLAUDE.md
 docs/setup/
 docs/rpi/
 docs/plans/
