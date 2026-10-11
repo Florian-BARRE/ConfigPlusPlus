@@ -1,0 +1,69 @@
+# gitleaks configuration for ConfigPlusPlus.
+#
+# Extends the default gitleaks ruleset. The only exceptions below are fake,
+# documented placeholder keys used by the docs, examples and tests to show
+# secret masking. Each allowlist matches the exact placeholder value AND the
+# exact file it lives in, for the single rule that fires on it. A real key, or
+# the same placeholder in any other file, is still reported.
+#
+# Adding a new fake key? Add a new [[allowlists]] block just as precise:
+# anchored value, anchored file path, condition = "AND", one target rule.
+
+[extend]
+useDefault = true
+
+# README.md: Stripe-shaped placeholder in the masking example. Both rules fire
+# on the same value (gitleaks reports the generic one once the Stripe one is
+# allowlisted), so both are targeted, for this exact value and file only.
+[[allowlists]]
+description = "Documented placeholder Stripe key in README.md"
+targetRules = ["stripe-access-token", "generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^sk_live_abc123xyz789$''']
+paths = ['''^README\.md$''']
+
+# docs/REFERENCE.md: placeholder key in the API reference examples.
+[[allowlists]]
+description = "Documented placeholder API key in docs/REFERENCE.md"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^sk_live_abc123$''']
+paths = ['''^docs/REFERENCE\.md$''']
+
+# docs/USAGE.md: placeholder key in the usage guide examples.
+[[allowlists]]
+description = "Documented placeholder API key in docs/USAGE.md"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^sk_live_abc123$''']
+paths = ['''^docs/USAGE\.md$''']
+
+# examples/.env.example: placeholder value in the example env file.
+[[allowlists]]
+description = "Placeholder API key in examples/.env.example"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^sk_test_abc123xyz789_secret_key$''']
+paths = ['''^examples/\.env\.example$''']
+
+# tests/test_base.py: fake keys used to test secret masking.
+[[allowlists]]
+description = "Fake test keys in tests/test_base.py"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^secret123456789$''', '''^sk-abcdef123456$''']
+paths = ['''^tests/test_base\.py$''']
+
+# tests/test_yaml_loader.py: fake token used to test secret masking.
+[[allowlists]]
+description = "Fake test token in tests/test_yaml_loader.py"
+targetRules = ["generic-api-key"]
+condition = "AND"
+regexTarget = "secret"
+regexes = ['''^tok-abcdef123456$''']
+paths = ['''^tests/test_yaml_loader\.py$''']

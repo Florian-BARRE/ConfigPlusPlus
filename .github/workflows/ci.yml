@@ -8,7 +8,9 @@ on:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Only PR runs are cancelled: a cancelled push run on main/develop would leave its commits
+  # unscanned by the secrets job.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -17,17 +19,127 @@ jobs:
   quality:
     uses: ./.github/workflows/quality.yml
 
+  # Secret hygiene on every PR and push:
+  #   1. No tracked secret file (`.env`, `*.env`, `.env.*`); only `*.example` templates allowed.
+  #   2. gitleaks (pinned release binary, SHA-256 checked) on the commits brought by the PR /
+  #      push, not the whole history. A PR base commit missing from the clone falls back to the
+  #      merge-base with the PR's base branch; a missing push `before` commit (new branch or
+  #      force-push) falls back to the merge-base with main; an empty range falls back to the
+  #      head commit alone, so the scan never silently covers zero commits. Exceptions for
+  #      documented fake keys live in `.gitleaks.toml`.
+  secrets:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      GITLEAKS_VERSION: "8.30.1"
+      GITLEAKS_SHA256: "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb"
+    steps:
+      - name: Checkout (full history, needed for the commit range)
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: No tracked secret file
+        run: |
+          # Basename `.env`, `dev.env`, `<anything>.env` or `.env.<suffix>` (`.env.local`,
+          # `.env.production`...); `*.example` templates are the only allowed exception.
+          offending="$(git ls-files \
+            | grep -E '(^|/)([^/]*\.env|\.env\.[^/]+)$' \
+            | grep -vE '\.example$' || true)"
+          if [ -n "$offending" ]; then
+            echo "::error::Secret files are tracked (commit only *.example templates):"
+            echo "$offending"
+            exit 1
+          fi
+          echo "No tracked .env file."
+
+      - name: Install gitleaks
+        run: |
+          set -euo pipefail
+          archive="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          curl -sSfL -o "$archive" \
+            "https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}/${archive}"
+          echo "${GITLEAKS_SHA256}  ${archive}" | sha256sum -c -
+          tar -xzf "$archive" gitleaks
+          ./gitleaks version
+
+      - name: gitleaks on the new commits
+        env:
+          EVENT: ${{ github.event_name }}
+          PR_BASE: ${{ github.event.pull_request.base.sha }}
+          PR_HEAD: ${{ github.event.pull_request.head.sha }}
+          PR_BASE_REF: ${{ github.base_ref }}
+          PUSH_BEFORE: ${{ github.event.before }}
+          PUSH_AFTER: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          has_commit() { [ -n "$1" ] && git cat-file -e "$1^{commit}" 2>/dev/null; }
+          zero="0000000000000000000000000000000000000000"
+          if [ "$EVENT" = "pull_request" ]; then
+            head="$PR_HEAD"
+            if has_commit "$PR_BASE"; then
+              range="${PR_BASE}..${PR_HEAD}"
+            else
+              # Base commit not in the clone (e.g. base branch rewritten): scan what the PR adds
+              # since it left its base branch.
+              echo "PR base commit ${PR_BASE:-<empty>} not found: falling back to merge-base."
+              base="$(git merge-base "origin/${PR_BASE_REF}" "$PR_HEAD" 2>/dev/null || true)"
+              if [ -n "$base" ] && [ "$base" != "$PR_HEAD" ]; then
+                range="${base}..${PR_HEAD}"
+              else
+                range=""
+              fi
+            fi
+          else
+            head="$PUSH_AFTER"
+            if [ "$PUSH_BEFORE" != "$zero" ] && has_commit "$PUSH_BEFORE"; then
+              range="${PUSH_BEFORE}..${PUSH_AFTER}"
+            else
+              # New branch (`before` is all zeros) or force-push (`before` was rewritten away
+              # and is not in the clone): scan what the branch adds since it left main.
+              echo "No usable 'before' commit (${PUSH_BEFORE:-<empty>}): falling back to merge-base."
+              base="$(git merge-base origin/main "$PUSH_AFTER" 2>/dev/null || true)"
+              if [ -n "$base" ] && [ "$base" != "$PUSH_AFTER" ]; then
+                range="${base}..${PUSH_AFTER}"
+              else
+                range=""
+              fi
+            fi
+          fi
+          has_commit "$head" || { echo "::error::Commit to scan not found: ${head:-<empty>}"; exit 1; }
+          # Never scan nothing: an empty or invalid range falls back to the head commit alone.
+          count=0
+          if [ -n "$range" ]; then
+            count="$(git rev-list --count "$range")"
+          fi
+          if [ "$count" -eq 0 ]; then
+            echo "::warning::Range '${range:-<none>}' has no commit: scanning ${head} alone."
+            range="-1 ${head}"
+            count=1
+          fi
+          echo "Scanning ${count} commit(s): $range"
+          ./gitleaks git --config .gitleaks.toml --redact --verbose --log-opts="$range" .
+
   # Single aggregated status to require in branch protection, so the required
   # check name is stable regardless of the test matrix.
   all-green:
-    needs: quality
+    needs: [quality, secrets]
     runs-on: ubuntu-latest
     if: always()
     steps:
-      - name: Verify quality gate passed
+      - name: Verify quality and secrets gates passed
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          SECRETS_RESULT: ${{ needs.secrets.result }}
         run: |
-          if [ "${{ needs.quality.result }}" != "success" ]; then
-            echo "::error::Quality gate did not pass (${{ needs.quality.result }})"
+          if [ "$QUALITY_RESULT" != "success" ]; then
+            echo "::error::Quality gate did not pass ($QUALITY_RESULT)"
             exit 1
           fi
-          echo "All quality checks passed."
+          if [ "$SECRETS_RESULT" != "success" ]; then
+            echo "::error::Secrets gate did not pass ($SECRETS_RESULT)"
+            exit 1
+          fi
+          echo "All quality and secrets checks passed."
