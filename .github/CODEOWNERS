@@ -1,0 +1,4 @@
+# On this public repository a PR could loosen its own gitleaks scan or CI.
+# Changes to the gitleaks config and to .github/ need the maintainer's review.
+/.gitleaks.toml @Florian-BARRE
+/.github/ @Florian-BARRE
