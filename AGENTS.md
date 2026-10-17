@@ -25,22 +25,12 @@ python-dotenv, PyYAML, loggerplusplus.
 - `src/configplusplus/`: the package (`base.py`, `env_loader.py`, `yaml_loader.py`,
   `utils.py`, `_display.py` render/masking engine, `py.typed`). Public API = `__all__` in
   `__init__.py`.
-- `tests/`: pytest suite (coverage must stay >= 95%, currently 100%).
-- `examples/`: runnable examples, linted like the source.
+- `tests/`: pytest suite.
+- `examples/`: runnable examples.
 - `docs/`: `INSTALL.md`, `USAGE.md`, `REFERENCE.md`. Keep them and `README.md` in sync with
   any API change.
 
-## Commands (Poetry)
-
-```bash
-poetry install
-poetry run black --check src/ tests/ examples/
-poetry run ruff check src/ tests/ examples/
-poetry run mypy src/
-poetry run pytest --cov=configplusplus --cov-fail-under=95
-```
-
-These are the same checks CI runs (`.github/workflows/quality.yml`).
+Local setup: `poetry install`.
 
 ## Conventions
 
@@ -50,7 +40,6 @@ These are the same checks CI runs (`.github/workflows/quality.yml`).
   (`x-release-please-version`). Only release-please bumps it; never edit it by hand.
 - Supported: Python 3.10 to 3.13 on Linux, macOS and Windows (CI matrix). Do not use syntax
   or stdlib features newer than 3.10.
-- Fully typed code (`mypy` with `disallow_untyped_defs`), black + ruff, line length 88.
 
 ## Caveats
 
@@ -60,4 +49,3 @@ These are the same checks CI runs (`.github/workflows/quality.yml`).
 - Docs and tests contain fake example keys. Any new one must be added precisely to
   `.gitleaks.toml` (exact value + exact file + only the rule(s) that fire, `condition = "AND"`);
   never allowlist a directory, disable a rule or use `.gitleaksignore`.
-- Never commit real `.env` files; only `.env.example` templates are tracked.
