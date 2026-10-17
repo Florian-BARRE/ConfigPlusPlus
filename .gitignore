@@ -212,8 +212,12 @@ __marimo__/
 
 .pt
 
-# Claude Code local tooling (not versioned; CLAUDE.md is versioned)
-.claude/
+# Claude Code local tooling (not versioned), except what the AI Dev Kit commits
+.claude/*
+!.claude/settings.json
+!.claude/agents/
+!.claude/skills/
+.claude/worktrees/
 .mcp.json
 docs/setup/
 docs/rpi/
