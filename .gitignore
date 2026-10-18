@@ -222,3 +222,6 @@ __marimo__/
 docs/setup/
 docs/rpi/
 docs/plans/
+
+# AI Dev Kit: local folders never committed (Claude Code's worktrees, Orca's own files)
+.orca/
