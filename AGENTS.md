@@ -15,7 +15,7 @@ a worker in a worktree) and its method.
 
 Read by every agent session (Claude Code through `CLAUDE.md`, Codex directly). Project-specific
 facts only; generic agent rules (planning, delegation, commits, review, memory, definition of done)
-come from the dev center's managed layer. All checks: `aidk verify` from the repository root (they
+come from `aidk guide`. All checks: `aidk verify` from the repository root (they
 live in `.aidk/project.toml`).
 
 ## General
@@ -43,7 +43,18 @@ python-dotenv, PyYAML, loggerplusplus.
 - `docs/`: `INSTALL.md`, `USAGE.md`, `REFERENCE.md`. Keep them and `README.md` in sync with
   any API change.
 
-Local setup: `poetry install`.
+## Commands
+
+- Setup: Orca's worktree setup (`orca.yaml`) installs the env; by hand,
+  `uvx --from 'poetry>=2,<3' poetry install --no-interaction` (or `poetry install`). No
+  `poetry.lock` is committed (a library: dependencies resolve fresh, like the CI); do not add one.
+- All checks: `aidk verify` (`deps`, `format`, `lint`, `types`, `tests` of `.aidk/project.toml`,
+  the same commands as `quality.yml`). One at a time, through `uvx --from 'poetry>=2,<3' poetry run`:
+  `black --check src/ tests/ examples/`, `ruff check src/ tests/ examples/`, `mypy src/`,
+  `pytest --cov=configplusplus --cov-report=term-missing --cov-fail-under=95`.
+- The kit's git hooks run `format` and `lint` at each commit, `types` and `tests` before each push
+  (all a few seconds).
+- No dev server: there is no `[stack]`.
 
 ## Conventions
 
@@ -53,6 +64,41 @@ Local setup: `poetry install`.
   (`x-release-please-version`). Only release-please bumps it; never edit it by hand.
 - Supported: Python 3.10 to 3.13 on Linux, macOS and Windows (CI matrix). Do not use syntax
   or stdlib features newer than 3.10.
+
+## CI
+
+All workflows run on GitHub-hosted runners (`ubuntu-latest`, plus the test matrix), on `pull_request`,
+never `pull_request_target`: anyone can open a PR from a fork, so never a self-hosted runner.
+
+- `ci.yml` (push and PR to `main`/`develop`): `quality` calls the reusable `quality.yml` (black, ruff,
+  mypy; pytest on Python 3.10 to 3.13 x ubuntu/windows/macos with `--cov-fail-under=95`; `poetry build`,
+  `twine check`, smoke install of the wheel); `secrets` (no tracked env file, only `*.example`; a pinned,
+  checksum-verified gitleaks on the commits the PR or push brings); `all-green`, the aggregate status to
+  require.
+- `codeql.yml`: CodeQL for Python on push and PR to `main`, and weekly.
+- `aidk-checks.yml`: the kit's drift rules on each PR (the kit's file: `aidk upgrade --here` rewrites it).
+- Dependabot: weekly, one group for GitHub Actions and one for pip.
+- `CODEOWNERS`: `.github/` and `.gitleaks.toml` need the maintainer's review.
+
+## Release and publishing
+
+The existing pipeline; agents describe it, never change it.
+
+1. Conventional Commits land on `main`. `release-please.yml` (on push to `main`,
+   `googleapis/release-please-action`, config `release-please-config.json` +
+   `.release-please-manifest.json`) keeps a release PR open: it bumps the version in `pyproject.toml`
+   and `src/configplusplus/__init__.py` and updates `CHANGELOG.md`. `chore`, `docs`, `ci` and `test`
+   commits do not trigger a release.
+2. Merging the release PR creates the `v*` tag and the GitHub Release, then dispatches `publish.yml`
+   (`workflow_dispatch`, `repository=pypi`).
+3. `publish.yml` reruns `quality.yml` on the tag, checks tag == `pyproject.toml` == `__version__`,
+   builds with Poetry and uploads with `pypa/gh-action-pypi-publish` through PyPI Trusted Publishing
+   (OIDC, `id-token: write`, GitHub environments `pypi` and `testpypi`; no PyPI token secret). A manual
+   dispatch can target TestPyPI; a manually pushed `v*` tag also publishes to PyPI.
+
+Agents never merge a release PR, never edit `publish.yml`, `release-please.yml`, the release config or
+manifest, nor the version. A request touching them, `.gitleaks.toml`, `CODEOWNERS` or `dependabot.yml`
+never merges without florian (`[merge] never_alone`).
 
 ## Caveats
 

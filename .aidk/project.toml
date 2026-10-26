@@ -23,5 +23,18 @@ timeout = 900
 # The kit's git hooks (every commit and every push, whatever the agent's tool): the names of [checks]
 # run at each commit (keep them fast: a few seconds) and before each push.
 [hooks]
-pre_commit = []
-pre_push = []
+pre_commit = ["format", "lint"]    # black --check, ruff: well under a second each
+pre_push = ["types", "tests"]      # mypy, pytest with coverage: a few seconds
+
+# Added to the kit's own paths: a request touching these never merges unless florian does it
+# (PyPI publishing, releases, the secret scan's config, the repository's review and update rules).
+[merge]
+never_alone = [
+    ".github/workflows/publish.yml",
+    ".github/workflows/release-please.yml",
+    "release-please-config.json",
+    ".release-please-manifest.json",
+    ".gitleaks.toml",
+    ".github/CODEOWNERS",
+    ".github/dependabot.yml",
+]
