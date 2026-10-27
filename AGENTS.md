@@ -48,12 +48,18 @@ python-dotenv, PyYAML, loggerplusplus.
 - Setup: Orca's worktree setup (`orca.yaml`) installs the env; by hand,
   `uvx --from 'poetry>=2,<3' poetry install --no-interaction` (or `poetry install`). No
   `poetry.lock` is committed (a library: dependencies resolve fresh, like the CI); do not add one.
-- All checks: `aidk verify` (`deps`, `format`, `lint`, `types`, `tests` of `.aidk/project.toml`,
-  the same commands as `quality.yml`). One at a time, through `uvx --from 'poetry>=2,<3' poetry run`:
+- All checks: `aidk verify` (`deps`, `format`, `lint`, `types`, `tests`, `tests-py310`, `package`,
+  `envfiles`, `gitleaks` of `.aidk/project.toml`: a mirror of `ci.yml` and `quality.yml`, the toml's
+  header maps each CI step to its check). One at a time, through `uvx --from 'poetry>=2,<3' poetry run`:
   `black --check src/ tests/ examples/`, `ruff check src/ tests/ examples/`, `mypy src/`,
-  `pytest --cov=configplusplus --cov-report=term-missing --cov-fail-under=95`.
-- The kit's git hooks run `format` and `lint` at each commit, `types` and `tests` before each push
-  (all a few seconds).
+  `pytest --cov=configplusplus --cov-report=term-missing --cov-fail-under=95`. `tests-py310` reruns
+  the tests on Python 3.10 (`uv run --isolated --no-project --python 3.10 ...`); `package` does the
+  build job (`poetry check`, `poetry build`, `twine check`, smoke install) in a temporary folder;
+  `envfiles` and `gitleaks` are the `secrets` job (gitleaks 8.30.1 through its pinned Docker image,
+  so it needs Docker). Not local: the Windows/macOS legs and Python 3.11/3.12 of the test matrix,
+  CodeQL.
+- The kit's git hooks run `format` and `lint` at each commit, `types`, `tests` and `tests-py310`
+  before each push (all a few seconds).
 - No dev server: there is no `[stack]`.
 
 ## Conventions
