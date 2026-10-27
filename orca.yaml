@@ -1,0 +1,14 @@
+# The AI Dev Kit's orca.yaml (no [stack]: this library runs no dev server).
+# Orca reads `setup` from the new worktree's own orca.yaml and `archive` from the main checkout's: a change
+# here holds for removals once it is merged.
+# setup, before the agent starts (wait-for-setup): the kit's git hooks, then the worktree's own Poetry
+# environment (no poetry.lock is committed: dependencies resolve fresh, like the CI). A failed install never
+# fails the worktree: the agent reruns it (`aidk verify` starts with the same command).
+# archive, when Orca removes the worktree: frees what the kit kept for it.
+setupAgentStartupPolicy: wait-for-setup
+scripts:
+  setup: |
+    aidk stack setup
+    uvx --from 'poetry>=2,<3' poetry install --no-interaction || echo "poetry install failed: rerun it in this worktree"
+  archive: |
+    aidk stack release
