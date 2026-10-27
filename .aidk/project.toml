@@ -1,6 +1,23 @@
 # AI Dev Kit: what aidk verify checks before a task is declared done (agents and the Stop hook).
 # Each check is the command as a list of arguments, run from the repository root, in this order.
-# The CI gate's commands (.github/workflows/quality.yml), through Poetry run by uvx (no Poetry install needed).
+# A mirror of the CI (.github/workflows/), through Poetry run by uvx (no Poetry install needed):
+#
+#   ci.yml quality -> quality.yml (the same file publish.yml reruns on the release tag):
+#     lint job: install, black, ruff, mypy        -> deps, format, lint, types
+#     test job: pytest + coverage >= 95%, Python 3.10 to 3.13 x ubuntu/windows/macos
+#                                                  -> tests (the Poetry env's Python) and tests-py310 (the floor);
+#                                                     3.11/3.12 and Windows/macOS: only in the CI (one machine here)
+#     build job: poetry check, poetry build, twine check, smoke install + import of the wheel -> package
+#                (in a temporary folder: nothing left in dist/); "Upload distribution artifacts": CI only
+#   ci.yml secrets: no tracked env file          -> envfiles
+#                   gitleaks 8.30.1 on the new commits -> gitleaks (the same release, pinned image, Docker)
+#   ci.yml all-green: the aggregate status       -> aidk verify itself (green only when every check is)
+#   codeql.yml: CodeQL for Python                -> none: GitHub's analysis, it does not run locally
+#   aidk-checks.yml: the kit's drift rules       -> none here: aidk verify and aidk done run the same rules
+#
+# The lint job runs on Python 3.11, here the Poetry env's Python: mypy pins python_version = "3.10" and ruff
+# target-version = "py310" in pyproject.toml, so the result does not depend on the interpreter.
+# Measured on the dev machine, warm caches: each check under 3 s (the whole run about 10 s).
 
 [project]
 kind = "code"    # code, docs or research: docs and research need no tests rule, their checks are optional
@@ -11,20 +28,75 @@ format = ["uvx", "--from", "poetry>=2,<3", "poetry", "run", "black", "--check", 
 lint = ["uvx", "--from", "poetry>=2,<3", "poetry", "run", "ruff", "check", "src/", "tests/", "examples/"]
 types = ["uvx", "--from", "poetry>=2,<3", "poetry", "run", "mypy", "src/"]
 tests = ["uvx", "--from", "poetry>=2,<3", "poetry", "run", "pytest", "--cov=configplusplus", "--cov-report=term-missing", "--cov-fail-under=95"]
+# The supported floor (Python 3.10, uv-managed, downloaded once) in a throwaway env: the package, pytest and
+# pytest-cov resolved fresh, like the CI (no poetry.lock).
+tests-py310 = ["uv", "run", "--isolated", "--no-project", "--python", "3.10", "--with-editable", ".", "--with", "pytest", "--with", "pytest-cov", "pytest", "--cov=configplusplus", "--cov-report=term-missing", "--cov-fail-under=95"]
+# quality.yml build job, in a temporary folder removed afterwards.
+package = ["uvx", "--from", "poetry>=2,<3", "poetry", "run", "python", "-c", '''
+import glob, os, subprocess, sys, tempfile
+poetry = ["uvx", "--from", "poetry>=2,<3", "poetry"]
+def run(*cmd):
+    print("+", " ".join(cmd), flush=True)
+    subprocess.run(cmd, check=True)
+with tempfile.TemporaryDirectory() as tmp:
+    dist, smoke = os.path.join(tmp, "dist"), os.path.join(tmp, "smoke")
+    run(*poetry, "check")
+    run(*poetry, "build", "--output", dist)
+    run("uvx", "twine", "check", *glob.glob(os.path.join(dist, "*")))
+    run(sys.executable, "-m", "venv", smoke)
+    py = os.path.join(smoke, "Scripts" if os.name == "nt" else "bin", "python")
+    run(py, "-m", "pip", "install", "-q", *glob.glob(os.path.join(dist, "*.whl")))
+    run(py, "-c", "import configplusplus; print('import OK', configplusplus.__version__)")
+''']
+# ci.yml secrets job, step "No tracked secret file": the same pattern.
+envfiles = ["uvx", "--from", "poetry>=2,<3", "poetry", "run", "python", "-c", '''
+import re, subprocess, sys
+files = subprocess.run(["git", "ls-files", "-z"], capture_output=True, text=True, check=True).stdout.split("\0")
+bad = [f for f in files if re.search(r"(^|/)([^/]*\.env|\.env\.[^/]+)$", f) and not f.endswith(".example")]
+if bad:
+    sys.exit("Secret files are tracked (commit only *.example templates):\n" + "\n".join(bad))
+print("No tracked .env file.")
+''']
+# ci.yml secrets job, gitleaks: the CI's release (8.30.1) as its official image pinned by digest, offline, the
+# repository mounted read-only (with the git folder a worktree points to), on the commits since origin/main
+# (the head commit alone when there is none), with .gitleaks.toml. Needs Docker (the rootless daemon here).
+gitleaks = ["uvx", "--from", "poetry>=2,<3", "poetry", "run", "python", "-c", '''
+import subprocess, sys
+def git(*args):
+    return subprocess.run(["git", *args], capture_output=True, text=True).stdout.strip()
+root = git("rev-parse", "--show-toplevel")
+common = git("rev-parse", "--path-format=absolute", "--git-common-dir")
+base = git("merge-base", "origin/main", "HEAD")
+count = git("rev-list", "--count", base + "..HEAD") if base else ""
+log = base + "..HEAD" if count not in ("", "0") else "-1 HEAD"
+print("Scanning %s commit(s): %s" % (count if log != "-1 HEAD" else 1, log), flush=True)
+sys.exit(subprocess.run([
+    "docker", "run", "--rm", "--network", "none",
+    "-v", root + ":" + root + ":ro", "-v", common + ":" + common + ":ro", "-w", root,
+    "ghcr.io/gitleaks/gitleaks:v8.30.1@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f",
+    "git", "--config", ".gitleaks.toml", "--redact", "--verbose", "--log-opts=" + log, ".",
+]).returncode)
+''']
 
 [rules]
 base = "origin/main"
 # A change to source files needs a change to test files (globs, relative to the repository).
+# examples/ are runnable examples: formatted and linted (format, lint), not tested nor covered, so not a source.
 source = ["src/**"]
 tests = ["tests/**"]
 require_tests = true
-timeout = 900
+# Seconds per check: the slowest takes a few seconds warm; a cold cache (Poetry env, Python 3.10, the gitleaks
+# image, twine) downloads first, hence the margin.
+timeout = 300
 
 # The kit's git hooks (every commit and every push, whatever the agent's tool): the names of [checks]
 # run at each commit (keep them fast: a few seconds) and before each push.
 [hooks]
-pre_commit = ["format", "lint"]    # black --check, ruff: well under a second each
-pre_push = ["types", "tests"]      # mypy, pytest with coverage: a few seconds
+pre_commit = ["format", "lint"]                  # black --check, ruff: under a second each
+pre_push = ["types", "tests", "tests-py310"]     # mypy, pytest with coverage on the env's Python and on 3.10
+
+# No [index]: the kit's default (the whole repository minus build and cache folders, 3 levels deep) fits this
+# small repository (src/, tests/, examples/, docs/, .github/, .aidk/).
 
 # Added to the kit's own paths: a request touching these never merges unless florian does it
 # (PyPI publishing, releases, the secret scan's config, the repository's review and update rules).
