@@ -110,3 +110,4 @@ never_alone = [
     ".github/CODEOWNERS",
     ".github/dependabot.yml",
 ]
+bots = ["dependabot[bot]"]    # the kit reviews and merges Dependabot's PRs (weekly actions and pip groups)
