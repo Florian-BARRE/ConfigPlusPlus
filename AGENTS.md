@@ -79,8 +79,8 @@ never `pull_request_target`: anyone can open a PR from a fork, so never a self-h
 - `ci.yml` (push and PR to `main`/`develop`): `quality` calls the reusable `quality.yml` (black, ruff,
   mypy; pytest on Python 3.10 to 3.13 x ubuntu/windows/macos with `--cov-fail-under=95`; `poetry build`,
   `twine check`, smoke install of the wheel); `secrets` (no tracked env file, only `*.example`; a pinned,
-  checksum-verified gitleaks on the commits the PR or push brings); `all-green`, the aggregate status to
-  require.
+  checksum-verified gitleaks on the commits the PR or push brings); `all-green`, the single aggregate
+  status of the gate. The repository has no branch protection, by the maintainer's decision.
 - `codeql.yml`: CodeQL for Python on push and PR to `main`, and weekly.
 - `aidk-checks.yml`: the kit's drift rules on each PR (the kit's file: `aidk upgrade --here` rewrites it).
 - Dependabot: weekly, one group for GitHub Actions and one for pip.
@@ -93,10 +93,14 @@ The existing pipeline; agents describe it, never change it.
 1. Conventional Commits land on `main`. `release-please.yml` (on push to `main`,
    `googleapis/release-please-action`, config `release-please-config.json` +
    `.release-please-manifest.json`) keeps a release PR open: it bumps the version in `pyproject.toml`
-   and `src/configplusplus/__init__.py` and updates `CHANGELOG.md`. `chore`, `docs`, `ci` and `test`
-   commits do not trigger a release.
-2. Merging the release PR creates the `v*` tag and the GitHub Release, then dispatches `publish.yml`
-   (`workflow_dispatch`, `repository=pypi`).
+   and `src/configplusplus/__init__.py` and updates `CHANGELOG.md`. The Python release type includes
+   `feat`, `fix`, `perf`, `deps`, `revert` and `docs` in its default changelog sections; `docs` commits
+   produce a release under Documentation (PR #22 for 0.4.1 contains only a docs entry). `style`,
+   `chore`, `refactor`, `test`, `build` and `ci` are hidden and do not trigger a release on their own
+   unless they declare a breaking change.
+2. Merging the release PR creates the `configplusplus-v<version>` tag and the GitHub Release, then
+   dispatches `publish.yml` (`workflow_dispatch`, `repository=pypi`). Tags include the component and
+   the `v` prefix (`include-v-in-tag`); the older 0.1.x tags were plain `v0.1.x`.
 3. `publish.yml` reruns `quality.yml` on the tag, checks tag == `pyproject.toml` == `__version__`,
    builds with Poetry and uploads with `pypa/gh-action-pypi-publish` through PyPI Trusted Publishing
    (OIDC, `id-token: write`, GitHub environments `pypi` and `testpypi`; no PyPI token secret). A manual

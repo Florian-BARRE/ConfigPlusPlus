@@ -122,8 +122,8 @@ jobs:
           echo "Scanning ${count} commit(s): $range"
           ./gitleaks git --config .gitleaks.toml --redact --verbose --log-opts="$range" .
 
-  # Single aggregated status to require in branch protection, so the required
-  # check name is stable regardless of the test matrix.
+  # Single aggregate status of the gate, stable regardless of the test matrix.
+  # The repository has no branch protection, by the maintainer's decision.
   all-green:
     needs: [quality, secrets]
     runs-on: ubuntu-latest
