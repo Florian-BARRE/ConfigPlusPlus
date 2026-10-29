@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.4.1](https://github.com/Florian-BARRE/ConfigPlusPlus/compare/configplusplus-v0.4.0...configplusplus-v0.4.1) (2026-10-29)
+
+
+### Documentation
+
+* **agents:** rewrite the agent texts from the project's facts ([#21](https://github.com/Florian-BARRE/ConfigPlusPlus/issues/21)) ([a34a2d2](https://github.com/Florian-BARRE/ConfigPlusPlus/commit/a34a2d271964b6e32d1e53f8d1723f98b15de56a))
+* correct the release and CI descriptions ([#31](https://github.com/Florian-BARRE/ConfigPlusPlus/issues/31)) ([2e39604](https://github.com/Florian-BARRE/ConfigPlusPlus/commit/2e3960469099dd1e1dc24be1b31bd5eff5ef3753))
+
 ## [0.4.0](https://github.com/Florian-BARRE/ConfigPlusPlus/compare/configplusplus-v0.3.0...configplusplus-v0.4.0) (2026-09-18)
 
 
