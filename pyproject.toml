@@ -36,11 +36,11 @@ Documentation = "https://github.com/Florian-BARRE/ConfigPlusPlus#readme"
 packages = [{ include = "configplusplus", from = "src" }]
 
 [tool.poetry.group.dev.dependencies]
-pytest = "^9.1.1"
+pytest = "^9.2.0"
 pytest-cov = "^7.1.0"
 black = "^26.10.1"
 ruff = "^0.17"
-mypy = "^2.4.0"
+mypy = "^2.4.1"
 types-PyYAML = "^6.0.12"
 
 [tool.pytest.ini_options]
