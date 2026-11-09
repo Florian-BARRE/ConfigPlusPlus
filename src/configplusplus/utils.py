@@ -130,9 +130,7 @@ def env(
         return cast(val)
     except (ValueError, TypeError) as exc:
         cast_name = getattr(cast, "__name__", repr(cast))
-        raise RuntimeError(
-            f"env var {key}={val!r} could not be cast with {cast_name}: {exc}"
-        ) from exc
+        raise RuntimeError(f"env var {key} could not be cast with {cast_name}") from exc
 
 
 def env_optional(key: str, *, default: Any = None, cast: type = str) -> Any:
