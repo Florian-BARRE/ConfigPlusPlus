@@ -186,6 +186,21 @@ def test_env_cast_error_names_key(monkeypatch):
         env("EV_PORT", cast=int)
 
 
+def test_env_cast_error_hides_raw_value(monkeypatch):
+    """BUG-01: a failed cast names the var and expected type only — never the raw value.
+
+    Before the fix the message embedded ``=value`` and the underlying exception text,
+    which would surface a sensitive env var in clear. It now pins the safe message and
+    asserts the value stays out of it (the security property itself).
+    """
+    monkeypatch.setenv("EV_SECRET", "s3cr3t")
+    with pytest.raises(RuntimeError) as exc:
+        env("EV_SECRET", cast=int)
+    assert str(exc.value) == "env var EV_SECRET could not be cast with int"
+    # The raw value must never surface in the error text.
+    assert "s3cr3t" not in str(exc.value)
+
+
 # --------------------------------------------------------------------------- #
 # env_list
 # --------------------------------------------------------------------------- #
