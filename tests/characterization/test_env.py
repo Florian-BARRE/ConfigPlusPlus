@@ -33,19 +33,19 @@ def test_env_missing_required_message(monkeypatch):
     assert str(exc.value) == "missing required env var CPLT_MISSING"
 
 
-def test_env_bad_cast_message_includes_raw_value(monkeypatch):
-    """A value that fails to cast raises RuntimeError with the raw value shown.
+def test_env_bad_cast_message_hides_raw_value(monkeypatch):
+    """A value that fails to cast raises RuntimeError naming the var and type only.
 
-    # BUG-01: this exact text changes when the raw-value leak is fixed —
-    # keep this golden in sync.
+    # BUG-01 (fixed): the message no longer embeds the raw value, which used to
+    # surface a sensitive var in clear. The golden now pins the safe text; the
+    # value is asserted absent (not shown).
     """
     monkeypatch.setenv("CPLT_BADINT", "notanint")
     with pytest.raises(RuntimeError) as exc:
         env("CPLT_BADINT", cast=int)
-    assert str(exc.value) == (
-        "env var CPLT_BADINT='notanint' could not be cast with int: "
-        "invalid literal for int() with base 10: 'notanint'"
-    )
+    assert str(exc.value) == "env var CPLT_BADINT could not be cast with int"
+    # BUG-01: the raw value must NOT appear in the message.
+    assert "notanint" not in str(exc.value)
 
 
 def test_env_list_missing_required_message(monkeypatch):
@@ -162,16 +162,15 @@ def test_env_optional_set_and_cast(monkeypatch):
 def test_env_optional_bad_cast_message(monkeypatch):
     """env_optional reuses env's bad-cast message verbatim.
 
-    # BUG-01: this exact text changes when the raw-value leak is fixed —
-    # keep this golden in sync.
+    # BUG-01 (fixed): env_optional shares env's cast path, so its message is
+    # re-pinned to the safe text (var name + expected type, no raw value).
     """
     monkeypatch.setenv("CPLT_OBTC", "notanint")
     with pytest.raises(RuntimeError) as exc:
         env_optional("CPLT_OBTC", cast=int)
-    assert str(exc.value) == (
-        "env var CPLT_OBTC='notanint' could not be cast with int: "
-        "invalid literal for int() with base 10: 'notanint'"
-    )
+    assert str(exc.value) == "env var CPLT_OBTC could not be cast with int"
+    # BUG-01: the raw value must NOT appear in the message.
+    assert "notanint" not in str(exc.value)
 
 
 # --------------------------------------------------------------------------- #
