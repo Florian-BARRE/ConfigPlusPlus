@@ -115,7 +115,7 @@ def test_config_meta_grouped_items():
     assert "DATABASE_PORT" in database_keys
 
 
-def test_config_meta_repr():
+def test_config_meta_repr(assert_masked):
     """Test pretty representation."""
     repr_str = repr(SampleConfig)
 
@@ -133,8 +133,7 @@ def test_config_meta_repr():
     assert "5432" in repr_str
 
     # Check secret is masked
-    assert "secret123456789" not in repr_str
-    assert "hidden" in repr_str.lower()
+    assert_masked(repr_str, "secret123456789")
 
 
 def test_config_meta_repr_with_paths():
@@ -306,21 +305,15 @@ def test_config_meta_multiple_groups():
     assert len(groups["REDIS"]) == 2
 
 
-def test_config_meta_render_all_formats():
+def test_config_meta_render_all_formats(render_each_format):
     """render() produces output for every advertised format."""
-    from configplusplus import _display
-
-    for fmt in _display.DISPLAY_FORMATS:
-        out = SampleConfig.render(fmt=fmt)
+    for _fmt, out in render_each_format(SampleConfig):
         assert "DATABASE_HOST" in out
 
 
-def test_config_meta_render_masks_in_every_format():
+def test_config_meta_render_masks_in_every_format(render_each_format):
     """The secret is masked whatever the format — masking is load-bearing."""
-    from configplusplus import _display
-
-    for fmt in _display.DISPLAY_FORMATS:
-        out = SampleConfig.render(fmt=fmt)
+    for _fmt, out in render_each_format(SampleConfig):
         assert "secret123456789" not in out
 
 
