@@ -8,7 +8,7 @@ from typing import Any
 import yaml
 from loggerplusplus import loggerplusplus
 
-from configplusplus import _display
+from configplusplus._display import ConfigDisplayMixin
 
 
 def _collapse_container(value: Any) -> Any:
@@ -20,7 +20,7 @@ def _collapse_container(value: Any) -> Any:
     return value
 
 
-class YamlConfigLoader(_display.ConfigDisplayMixin):
+class YamlConfigLoader(ConfigDisplayMixin):
     """
     Base class for YAML file based configuration.
 

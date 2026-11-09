@@ -4,10 +4,14 @@ Base classes for configuration management with beautiful display
 
 from typing import Any
 
-from configplusplus import _display
+from configplusplus._display import (
+    DEFAULT_SENSITIVE_KEYWORDS,
+    ConfigDisplayMixin,
+    _group_by_prefix,
+)
 
 
-class ConfigMeta(_display.ConfigDisplayMixin, type):
+class ConfigMeta(ConfigDisplayMixin, type):
     """
     Metaclass to provide pretty printing and helpers on configuration classes.
 
@@ -50,7 +54,7 @@ class ConfigMeta(_display.ConfigDisplayMixin, type):
         Returns:
             Dictionary mapping prefixes to list of (key, value) tuples
         """
-        return _display._group_by_prefix(list(cls.to_dict().items()))
+        return _group_by_prefix(list(cls.to_dict().items()))
 
 
 class ConfigBase(metaclass=ConfigMeta):
@@ -77,7 +81,7 @@ class ConfigBase(metaclass=ConfigMeta):
 
     # Sensitive-keyword set used by the display/masking layer. Override in a
     # subclass by extending this tuple; never remove a keyword.
-    _sensitive_keywords: tuple[str, ...] = _display.DEFAULT_SENSITIVE_KEYWORDS
+    _sensitive_keywords: tuple[str, ...] = DEFAULT_SENSITIVE_KEYWORDS
 
     # Default format used by print()/repr(). Override in a subclass with any of
     # configplusplus.DISPLAY_FORMATS. For a one-off format, call the
