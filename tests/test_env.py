@@ -9,18 +9,7 @@ import pytest
 from configplusplus import env, env_list, safe_load_envs
 from configplusplus.env import env_optional
 
-
-@pytest.fixture(autouse=True)
-def _isolate_environ():
-    """Snapshot os.environ and restore it after each test.
-
-    load_dotenv mutates the process environment; without this every test would
-    leak variables into the next one.
-    """
-    saved = dict(os.environ)
-    yield
-    os.environ.clear()
-    os.environ.update(saved)
+pytestmark = pytest.mark.usefixtures("isolate_environ")
 
 
 # --------------------------------------------------------------------------- #

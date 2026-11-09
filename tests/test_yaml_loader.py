@@ -11,33 +11,6 @@ import yaml
 from configplusplus import YamlConfigLoader
 
 
-@pytest.fixture
-def sample_yaml_file():
-    """Create a temporary YAML file for testing."""
-    config_data = {
-        "database": {"host": "localhost", "port": 5432, "name": "testdb"},
-        "api": {
-            "endpoint": "https://api.example.com",
-            "timeout": 30,
-            "secret_key": "secret123",
-        },
-        "features": [
-            {"name": "search", "enabled": True},
-            {"name": "export", "enabled": False},
-        ],
-        "settings": {"debug": False, "log_level": "INFO"},
-    }
-
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".yaml", delete=False) as f:
-        yaml.dump(config_data, f)
-        temp_path = f.name
-
-    yield temp_path
-
-    # Cleanup
-    pathlib.Path(temp_path).unlink()
-
-
 class SimpleYamlConfig(YamlConfigLoader):
     """Simple test configuration."""
 
@@ -139,7 +112,7 @@ def test_yaml_config_loader_repr(sample_yaml_file):
     assert "database_host" in repr_str
 
 
-def test_yaml_config_loader_secret_masking(sample_yaml_file):
+def test_yaml_config_loader_secret_masking(sample_yaml_file, assert_masked):
     """Test secret masking in repr."""
 
     class SecretConfig(YamlConfigLoader):
@@ -151,60 +124,42 @@ def test_yaml_config_loader_secret_masking(sample_yaml_file):
     repr_str = repr(config)
 
     # Secrets should be masked
-    assert "secret123" not in repr_str
-    assert "mypassword123" not in repr_str
-    assert "hidden" in repr_str.lower()
+    assert_masked(repr_str, "secret123", "mypassword123")
 
 
-def test_yaml_config_loader_with_lists(sample_yaml_file):
+def test_yaml_config_loader_with_lists(sample_yaml_file, features_config_cls):
     """Test handling of list data."""
 
-    class ListConfig(YamlConfigLoader):
-        def __post_init__(self) -> None:
-            self.features = self._raw_config["features"]
-
-    config = ListConfig(sample_yaml_file)
+    config = features_config_cls(sample_yaml_file)
 
     assert len(config.features) == 2
     assert config.features[0]["name"] == "search"
     assert config.features[1]["enabled"] is False
 
 
-def test_yaml_config_loader_repr_with_lists(sample_yaml_file):
+def test_yaml_config_loader_repr_with_lists(sample_yaml_file, features_config_cls):
     """Test repr shows list item count."""
 
-    class ListConfig(YamlConfigLoader):
-        def __post_init__(self) -> None:
-            self.features = self._raw_config["features"]
-
-    config = ListConfig(sample_yaml_file)
+    config = features_config_cls(sample_yaml_file)
     repr_str = repr(config)
 
     # Should show count, not full list
     assert "[2 items]" in repr_str
 
 
-def test_yaml_config_loader_with_nested_dicts(sample_yaml_file):
+def test_yaml_config_loader_with_nested_dicts(sample_yaml_file, database_config_cls):
     """Test handling of nested dictionary data."""
 
-    class NestedConfig(YamlConfigLoader):
-        def __post_init__(self) -> None:
-            self.database_config = self._raw_config["database"]
-
-    config = NestedConfig(sample_yaml_file)
+    config = database_config_cls(sample_yaml_file)
 
     assert isinstance(config.database_config, dict)
     assert config.database_config["host"] == "localhost"
 
 
-def test_yaml_config_loader_repr_with_dicts(sample_yaml_file):
+def test_yaml_config_loader_repr_with_dicts(sample_yaml_file, database_config_cls):
     """Test repr shows dict key count."""
 
-    class DictConfig(YamlConfigLoader):
-        def __post_init__(self) -> None:
-            self.database_config = self._raw_config["database"]
-
-    config = DictConfig(sample_yaml_file)
+    config = database_config_cls(sample_yaml_file)
     repr_str = repr(config)
 
     # Should show count, not full dict
@@ -343,13 +298,10 @@ def test_yaml_non_mapping_raises(tmp_path):
         C(listy)
 
 
-def test_yaml_render_all_formats(sample_yaml_file):
+def test_yaml_render_all_formats(sample_yaml_file, render_each_format):
     """render() produces output for every advertised format."""
-    from configplusplus import _display
-
     config = SimpleYamlConfig(sample_yaml_file)
-    for fmt in _display.DISPLAY_FORMATS:
-        out = config.render(fmt=fmt)
+    for _fmt, out in render_each_format(config):
         assert "database_host" in out
 
 
@@ -360,14 +312,12 @@ def test_yaml_render_invalid_format(sample_yaml_file):
         config.render(fmt="nope")
 
 
-def test_yaml_render_collapses_containers_in_table(sample_yaml_file):
+def test_yaml_render_collapses_containers_in_table(
+    sample_yaml_file, features_config_cls
+):
     """List/dict attributes are summarised as [N items]/{N keys} in any format."""
 
-    class ListYamlConfig(YamlConfigLoader):
-        def __post_init__(self) -> None:
-            self.features = self._raw_config["features"]
-
-    config = ListYamlConfig(sample_yaml_file)
+    config = features_config_cls(sample_yaml_file)
     out = config.render(fmt="table")
     assert "[2 items]" in out
 
@@ -384,7 +334,7 @@ def test_yaml_display_format_drives_repr(sample_yaml_file):
     assert "database_host" in out
 
 
-def test_yaml_render_masks_secret(sample_yaml_file):
+def test_yaml_render_masks_secret(sample_yaml_file, render_each_format):
     """Secrets stay masked across formats."""
 
     class SecretYamlConfig(YamlConfigLoader):
@@ -392,8 +342,8 @@ def test_yaml_render_masks_secret(sample_yaml_file):
             self.api_secret_key = self._raw_config["api"]["secret_key"]
 
     config = SecretYamlConfig(sample_yaml_file)
-    for fmt in ("table", "json", "dotenv", "flat"):
-        assert "secret123" not in config.render(fmt=fmt)
+    for _fmt, out in render_each_format(config, ("table", "json", "dotenv", "flat")):
+        assert "secret123" not in out
 
 
 def test_yaml_default_boxed_snapshot(sample_yaml_file):
