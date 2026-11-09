@@ -46,15 +46,16 @@ python-dotenv, PyYAML, loggerplusplus.
 ## Commands
 
 - Setup: Orca's worktree setup (`orca.yaml`) installs the env; by hand,
-  `uvx --from 'poetry>=2,<3' poetry install --no-interaction` (or `poetry install`). No
-  `poetry.lock` is committed (a library: dependencies resolve fresh, like the CI); do not add one.
+  `uv sync --locked` (or `uv sync`). `uv.lock` is committed: a reproducible environment, the CI
+  installs from it. Dev dependencies are the PEP 735 `dev` group of `pyproject.toml`; after changing
+  dependencies, run `uv lock` and commit the new `uv.lock` (`uv lock --check` must pass).
 - All checks: `aidk verify` (`deps`, `format`, `lint`, `types`, `tests`, `tests-py310`, `package`,
   `envfiles`, `gitleaks` of `.aidk/project.toml`: a mirror of `ci.yml` and `quality.yml`, the toml's
-  header maps each CI step to its check). One at a time, through `uvx --from 'poetry>=2,<3' poetry run`:
+  header maps each CI step to its check). One at a time, through `uv run`:
   `black --check src/ tests/ examples/`, `ruff check src/ tests/ examples/`, `mypy src/`,
   `pytest --cov=configplusplus --cov-report=term-missing --cov-fail-under=95`. `tests-py310` reruns
   the tests on Python 3.10 (`uv run --isolated --no-project --python 3.10 ...`); `package` does the
-  build job (`poetry check`, `poetry build`, `twine check`, smoke install) in a temporary folder;
+  build job (`uv lock --check`, `uv build`, `twine check`, smoke install) in a temporary folder;
   `envfiles` and `gitleaks` are the `secrets` job (gitleaks 8.30.1 through its pinned Docker image,
   so it needs Docker). Not local: the Windows/macOS legs and Python 3.11/3.12 of the test matrix,
   CodeQL.
@@ -77,7 +78,7 @@ All workflows run on GitHub-hosted runners (`ubuntu-latest`, plus the test matri
 never `pull_request_target`: anyone can open a PR from a fork, so never a self-hosted runner.
 
 - `ci.yml` (push and PR to `main`/`develop`): `quality` calls the reusable `quality.yml` (black, ruff,
-  mypy; pytest on Python 3.10 to 3.13 x ubuntu/windows/macos with `--cov-fail-under=95`; `poetry build`,
+  mypy; pytest on Python 3.10 to 3.13 x ubuntu/windows/macos with `--cov-fail-under=95`; `uv build`,
   `twine check`, smoke install of the wheel); `secrets` (no tracked env file, only `*.example`; a pinned,
   checksum-verified gitleaks on the commits the PR or push brings); `all-green`, the single aggregate
   status of the gate. The repository has no branch protection, by the maintainer's decision.
@@ -102,7 +103,7 @@ The existing pipeline; agents describe it, never change it.
    dispatches `publish.yml` (`workflow_dispatch`, `repository=pypi`). Tags include the component and
    the `v` prefix (`include-v-in-tag`); the older 0.1.x tags were plain `v0.1.x`.
 3. `publish.yml` reruns `quality.yml` on the tag, checks tag == `pyproject.toml` == `__version__`,
-   builds with Poetry and uploads with `pypa/gh-action-pypi-publish` through PyPI Trusted Publishing
+   builds the distribution and uploads with `pypa/gh-action-pypi-publish` through PyPI Trusted Publishing
    (OIDC, `id-token: write`, GitHub environments `pypi` and `testpypi`; no PyPI token secret). A manual
    dispatch can target TestPyPI; a manually pushed `v*` tag also publishes to PyPI.
 

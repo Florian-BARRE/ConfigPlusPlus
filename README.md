@@ -40,7 +40,7 @@ to be shared across every service in a stack.
 ```bash
 pip install configplusplus
 # or
-poetry add configplusplus
+uv add configplusplus
 ```
 
 Requires Python 3.10+.
@@ -304,11 +304,11 @@ src/configplusplus/
 ### Development
 
 ```bash
-poetry install                                   # editable install (src layout)
-poetry run pytest                                # tests + coverage
-poetry run black src/ tests/ examples/           # formatting (checked in CI)
-poetry run ruff check src/ tests/ examples/      # linting
-poetry run mypy src/                             # type checking
+uv sync                                           # editable install (src layout)
+uv run pytest                                     # tests + coverage
+uv run black src/ tests/ examples/                # formatting (checked in CI)
+uv run ruff check src/ tests/ examples/           # linting
+uv run mypy src/                                  # type checking
 ```
 
 Releases are automated. Commit with [Conventional Commits](https://www.conventionalcommits.org)

@@ -5,7 +5,7 @@
 ```bash
 pip install configplusplus
 # or
-poetry add configplusplus
+uv add configplusplus
 ```
 
 ## Environment Config (Static)
