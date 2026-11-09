@@ -124,3 +124,28 @@ def test_mask_if_secret_short_and_long():
     assert masked.endswith("(hidden)")
     assert _display.mask_if_secret("API_KEY", None, keywords) is None
     assert _display.mask_if_secret("HOST", "localhost", keywords) == "localhost"
+
+
+class _MinimalDisplay(_display.ConfigDisplayMixin):
+    """A mixin user that supplies only the item collection."""
+
+    def _collect_items(self):
+        return {"API_KEY": "abcdefghij", "HOST": "localhost"}
+
+
+def test_mixin_requires_a_collection_strategy():
+    """The mixin has no default item source: each loader must supply its own."""
+    with pytest.raises(NotImplementedError):
+        _display.ConfigDisplayMixin().to_dict()
+
+
+def test_mixin_defaults_mask_and_render_from_collected_items():
+    """With only ``_collect_items`` the mixin masks, titles by class and renders."""
+    config = _MinimalDisplay()
+    assert config.to_dict()["API_KEY"] == "abcdefghij"
+    assert config.to_dict(mask=True)["API_KEY"].endswith("(hidden)")
+    assert config._display_layout() == {}
+    out = config.render(fmt="flat")
+    assert "_MINIMALDISPLAY" in out
+    assert "abcdefghij" not in out
+    assert str(config) == repr(config) == config.render(fmt="boxed")
