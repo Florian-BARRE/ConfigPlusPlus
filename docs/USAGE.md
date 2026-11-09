@@ -13,13 +13,13 @@
 # Using pip
 pip install configplusplus
 
-# Using Poetry
-poetry add configplusplus
+# Using uv
+uv add configplusplus
 
 # Development installation
 git clone https://github.com/Florian-BARRE/ConfigPlusPlus.git
 cd ConfigPlusPlus
-poetry install
+uv sync
 ```
 
 ## Environment-Based Configuration

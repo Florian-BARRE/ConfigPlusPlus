@@ -24,8 +24,8 @@ print(Config)
 ```bash
 git clone https://github.com/Florian-BARRE/ConfigPlusPlus.git
 cd ConfigPlusPlus
-poetry install
-poetry run pytest
+uv sync
+uv run pytest
 ```
 
 ## Documentation
