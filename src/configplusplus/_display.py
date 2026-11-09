@@ -242,3 +242,85 @@ def _dotenv_value(value: Any) -> str:
 def _truncate(text: str, width: int) -> str:
     """Trim ``text`` to ``width`` characters, marking the cut with an ellipsis."""
     return text if len(text) <= width else text[: width - 1] + "…"
+
+
+class ConfigDisplayMixin:
+    """Shared mask -> render pipeline of both loaders (collect -> mask -> render).
+
+    ``ConfigMeta`` (env side, the *class* is the config) and ``YamlConfigLoader``
+    (yaml side, an *instance* is the config) differ only in how they gather the
+    values to display, so each supplies :meth:`_collect_items` (and, optionally,
+    the layout hooks below); everything else lives here, once. It is a plain
+    mixin, not an ABC: the two access models stay genuinely separate.
+
+    ``_sensitive_keywords`` and ``_display_format`` are the two documented
+    extension points; a subclass extends the keywords (never narrows them).
+    """
+
+    _sensitive_keywords: tuple[str, ...] = DEFAULT_SENSITIVE_KEYWORDS
+    _display_format: str = "boxed"
+
+    def _collect_items(self) -> dict[str, Any]:
+        """Return the raw ``{key: value}`` pairs to display (loader-specific)."""
+        raise NotImplementedError
+
+    def _display_title(self) -> str:
+        """Config name shown in the header (the class name by default)."""
+        return type(self).__name__
+
+    def _display_layout(self) -> dict[str, Any]:
+        """Extra keyword arguments for :func:`render` (subtitle, grouping...)."""
+        return {}
+
+    def _display_value(self, value: Any) -> Any:
+        """Prepare one (already masked) value for display."""
+        return format_value(value)
+
+    def _mask_if_secret(self, key: str, value: Any) -> Any:
+        """Mask ``value`` when ``key`` matches one of the sensitive keywords."""
+        return mask_if_secret(key, value, self._sensitive_keywords)
+
+    def to_dict(self, *, mask: bool = False) -> dict[str, Any]:
+        """Return the config values as a dict.
+
+        Args:
+            mask: When True, sensitive values are masked (safe to log). When
+                False (default), raw values are returned.
+        """
+        result = self._collect_items()
+        if mask:
+            result = {k: self._mask_if_secret(k, v) for k, v in result.items()}
+        return result
+
+    def render(self, *, fmt: str | None = None, mask: bool = True) -> str:
+        """Render the configuration as a string in the requested format.
+
+        Args:
+            fmt: One of :data:`DISPLAY_FORMATS`. Defaults to ``_display_format``.
+            mask: When True (default), sensitive values are masked — keep it True
+                for anything that may be logged. Pass False only for a raw dump.
+
+        Raises:
+            ValueError: If ``fmt`` is not a known display format.
+        """
+        chosen = fmt if fmt is not None else self._display_format
+        items = [
+            (
+                key,
+                self._display_value(
+                    self._mask_if_secret(key, value) if mask else value
+                ),
+            )
+            for key, value in self.to_dict().items()
+        ]
+        return render(
+            self._display_title(), items, fmt=chosen, **self._display_layout()
+        )
+
+    def __repr__(self) -> str:
+        """Pretty representation in the configured ``_display_format``."""
+        return type(self).render(self)
+
+    def __str__(self) -> str:
+        """String representation uses the pretty repr."""
+        return type(self).render(self)
