@@ -296,7 +296,7 @@ src/configplusplus/
 ├── base.py           ConfigMeta (display, grouping, masking) + ConfigBase
 ├── env_loader.py     EnvConfigLoader — static, import-time evaluation
 ├── yaml_loader.py    YamlConfigLoader — instance, __post_init__, dot-notation get()
-└── utils.py          env() · env_optional() · safe_load_envs()
+└── env.py            env() · env_optional() · env_list() · safe_load_envs()
 ```
 
 ---

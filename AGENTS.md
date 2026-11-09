@@ -36,7 +36,7 @@ python-dotenv, PyYAML, loggerplusplus.
 ## Layout
 
 - `src/configplusplus/`: the package (`base.py`, `env_loader.py`, `yaml_loader.py`,
-  `utils.py`, `_display.py` render/masking engine, `py.typed`). Public API = `__all__` in
+  `env.py`, `_display.py` `ConfigDisplayMixin` + render/masking engine, `py.typed`). Public API = `__all__` in
   `__init__.py`.
 - `tests/`: pytest suite.
 - `examples/`: runnable examples.
