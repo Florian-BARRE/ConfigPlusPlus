@@ -56,15 +56,19 @@ def test_env_list_missing_required_message(monkeypatch):
     assert str(exc.value) == "missing required env var CPLT_LIST_MISSING"
 
 
-def test_env_list_bad_item_cast_message(monkeypatch):
-    """An item that fails to cast raises RuntimeError naming the key and the item."""
-    monkeypatch.setenv("CPLT_BADITEM", "80,nope")
+def test_env_list_bad_item_cast_message_hides_raw_item(monkeypatch):
+    """An item that fails to cast raises RuntimeError naming the var and type only.
+
+    # BUG-02 (fixed): the message no longer embeds the raw item nor the underlying
+    # exception text (which re-quotes it), which used to surface a sensitive list
+    # item in clear. The golden pins the safe text; the item is asserted absent.
+    """
+    monkeypatch.setenv("CPLT_BADITEM", "80,s3cr3t-token")
     with pytest.raises(RuntimeError) as exc:
         env_list("CPLT_BADITEM", cast=int)
-    assert str(exc.value) == (
-        "env var CPLT_BADITEM item 'nope' could not be cast with int: "
-        "invalid literal for int() with base 10: 'nope'"
-    )
+    assert str(exc.value) == "env var CPLT_BADITEM could not be cast with int"
+    # BUG-02: the raw item must NOT appear in the message.
+    assert "s3cr3t-token" not in str(exc.value)
 
 
 # --------------------------------------------------------------------------- #
