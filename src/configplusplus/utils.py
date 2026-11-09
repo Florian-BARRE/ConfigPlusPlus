@@ -203,7 +203,9 @@ def env_list(
             result.append(cast(item))
         except (ValueError, TypeError) as exc:
             cast_name = getattr(cast, "__name__", repr(cast))
+            # Never embed the raw item nor ``exc``: either would surface a
+            # sensitive value in clear (same rule as ``env``, BUG-01 / BUG-02).
             raise RuntimeError(
-                f"env var {key} item {item!r} could not be cast with {cast_name}: {exc}"
+                f"env var {key} could not be cast with {cast_name}"
             ) from exc
     return result
