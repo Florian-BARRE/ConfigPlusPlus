@@ -15,6 +15,7 @@ Self-contained: fixtures come from ``monkeypatch`` and ``tmp_path`` only — no
 
 import os
 import pathlib
+import traceback
 
 import pytest
 
@@ -46,6 +47,12 @@ def test_env_bad_cast_message_hides_raw_value(monkeypatch):
     assert str(exc.value) == "env var CPLT_BADINT could not be cast with int"
     # BUG-01: the raw value must NOT appear in the message.
     assert "notanint" not in str(exc.value)
+    # BUG-03 (intentional behaviour change): the raise used to chain the
+    # underlying ValueError (``from exc``), whose text re-quotes the literal
+    # for int/float and so leaked the value in the traceback. The chain is now
+    # dropped (``from None``): no cause, and the full traceback is value-free.
+    assert exc.value.__cause__ is None
+    assert "notanint" not in "".join(traceback.format_exception(exc.value))
 
 
 def test_env_list_missing_required_message(monkeypatch):
@@ -69,6 +76,10 @@ def test_env_list_bad_item_cast_message_hides_raw_item(monkeypatch):
     assert str(exc.value) == "env var CPLT_BADITEM could not be cast with int"
     # BUG-02: the raw item must NOT appear in the message.
     assert "s3cr3t-token" not in str(exc.value)
+    # BUG-03 (intentional behaviour change): same as ``env`` -- the underlying
+    # cast error is no longer chained, so the item does not reach the traceback.
+    assert exc.value.__cause__ is None
+    assert "s3cr3t-token" not in "".join(traceback.format_exception(exc.value))
 
 
 # --------------------------------------------------------------------------- #
@@ -175,6 +186,9 @@ def test_env_optional_bad_cast_message(monkeypatch):
     assert str(exc.value) == "env var CPLT_OBTC could not be cast with int"
     # BUG-01: the raw value must NOT appear in the message.
     assert "notanint" not in str(exc.value)
+    # BUG-03: shared cast path, so the cause is dropped here too.
+    assert exc.value.__cause__ is None
+    assert "notanint" not in "".join(traceback.format_exception(exc.value))
 
 
 # --------------------------------------------------------------------------- #
