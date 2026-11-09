@@ -7,7 +7,7 @@ from typing import Any
 from configplusplus import _display
 
 
-class ConfigMeta(type):
+class ConfigMeta(_display.ConfigDisplayMixin, type):
     """
     Metaclass to provide pretty printing and helpers on configuration classes.
 
@@ -17,51 +17,28 @@ class ConfigMeta(type):
     - Secret masking for sensitive values
     """
 
-    def to_dict(cls, *, mask: bool = False) -> dict[str, Any]:
+    def _collect_items(cls) -> dict[str, Any]:
         """
         Return all UPPERCASE, non-callable attributes as a dict.
 
         Attributes are collected across the whole MRO, so a config subclass
         inherits the UPPERCASE fields of its parents (a child value overrides
         a parent value of the same name).
-
-        Args:
-            mask: When True, sensitive values are masked (safe to log). When
-                False (default), raw values are returned.
-
-        Returns:
-            Dictionary containing all configuration values
         """
         result: dict[str, Any] = {}
         for klass in reversed(cls.__mro__):
             for k, v in vars(klass).items():
                 if k.isupper() and not k.startswith("_") and not callable(v):
                     result[k] = v
-
-        if mask:
-            keywords = getattr(
-                cls, "_sensitive_keywords", _display.DEFAULT_SENSITIVE_KEYWORDS
-            )
-            result = {
-                k: _display.mask_if_secret(k, v, keywords) for k, v in result.items()
-            }
         return result
 
-    def _mask_if_secret(cls, key: str, value: Any) -> Any:
-        """
-        Mask potentially sensitive values (API keys, tokens, secrets, passwords).
+    def _display_title(cls) -> str:
+        """Config name shown in the header: the class name."""
+        return cls.__name__
 
-        Args:
-            key: Configuration key name
-            value: Configuration value
-
-        Returns:
-            Masked value if sensitive, original value otherwise
-        """
-        keywords = getattr(
-            cls, "_sensitive_keywords", _display.DEFAULT_SENSITIVE_KEYWORDS
-        )
-        return _display.mask_if_secret(key, value, keywords)
+    def _display_layout(cls) -> dict[str, Any]:
+        """Group the ``boxed`` rows by the prefix before the first underscore."""
+        return {"grouped": True}
 
     def _grouped_items(cls) -> dict[str, list]:
         """
@@ -74,51 +51,6 @@ class ConfigMeta(type):
             Dictionary mapping prefixes to list of (key, value) tuples
         """
         return _display._group_by_prefix(list(cls.to_dict().items()))
-
-    def render(cls, *, fmt: str | None = None, mask: bool = True) -> str:
-        """
-        Render the configuration as a string in the requested format.
-
-        Fields are grouped by the prefix before the first underscore in the
-        ``boxed`` format; the other formats are flat.
-
-        Args:
-            fmt: One of ``configplusplus.DISPLAY_FORMATS``
-                (``"boxed"``, ``"table"``, ``"json"``, ``"dotenv"``, ``"flat"``).
-                Defaults to the class-level ``_display_format`` (``"boxed"``).
-            mask: When True (default), sensitive values are masked — keep it True
-                for anything that may be logged. Pass False only for a deliberate
-                raw dump.
-
-        Returns:
-            The formatted configuration string.
-
-        Raises:
-            ValueError: If ``fmt`` is not a known display format.
-        """
-        chosen = fmt if fmt is not None else getattr(cls, "_display_format", "boxed")
-        keywords = getattr(
-            cls, "_sensitive_keywords", _display.DEFAULT_SENSITIVE_KEYWORDS
-        )
-        items = [
-            (
-                key,
-                _display.format_value(
-                    _display.mask_if_secret(key, value, keywords) if mask else value
-                ),
-            )
-            for key, value in cls.to_dict().items()
-        ]
-        return _display.render(cls.__name__, items, fmt=chosen, grouped=True)
-
-    def __repr__(cls) -> str:
-        """
-        Pretty representation of the configuration in its ``_display_format``.
-
-        Returns:
-            Formatted string produced by :meth:`render`.
-        """
-        return ConfigMeta.render(cls)
 
 
 class ConfigBase(metaclass=ConfigMeta):

@@ -20,7 +20,7 @@ def _collapse_container(value: Any) -> Any:
     return value
 
 
-class YamlConfigLoader:
+class YamlConfigLoader(_display.ConfigDisplayMixin):
     """
     Base class for YAML file based configuration.
 
@@ -34,14 +34,6 @@ class YamlConfigLoader:
         _raw_config: Raw dictionary loaded from YAML.
         logger: LoggerPlusPlus logger instance.
     """
-
-    # Sensitive-keyword set used by the display/masking layer. Extend it in a
-    # subclass (never narrow it); masking is a safety feature.
-    _sensitive_keywords: tuple[str, ...] = _display.DEFAULT_SENSITIVE_KEYWORDS
-
-    # Default format used by print()/repr(). Override in a subclass with any of
-    # configplusplus.DISPLAY_FORMATS, or pass fmt= to render() one-off.
-    _display_format: str = "boxed"
 
     def __init__(self, config_path: str | pathlib.Path) -> None:
         """
@@ -173,86 +165,28 @@ class YamlConfigLoader:
         except (KeyError, TypeError):
             return False
 
-    def to_dict(self, *, mask: bool = False) -> dict[str, Any]:
-        """
-        Convert config to dictionary, excluding private/special attributes.
-
-        Args:
-            mask: When True, sensitive values are masked (safe to log). When
-                False (default), raw values are returned.
-
-        Returns:
-            Dictionary containing all public instance attributes
-        """
-        result = {
+    def _collect_items(self) -> dict[str, Any]:
+        """Return the public instance attributes (no private/special ones)."""
+        return {
             k: v
             for k, v in self.__dict__.items()
             if not k.startswith("_") and k not in ("logger", "config_path")
         }
-        if mask:
-            result = {k: self._mask_if_secret(k, v) for k, v in result.items()}
-        return result
 
-    def _mask_if_secret(self, key: str, value: Any) -> Any:
+    def _display_value(self, value: Any) -> Any:
         """
-        Mask potentially sensitive values.
+        Collapse parsed list/dict attributes to ``[N items]`` / ``{N keys}``.
 
-        Args:
-            key: Attribute name
-            value: Attribute value
-
-        Returns:
-            Masked value if sensitive, original value otherwise
+        The YAML loader holds arbitrary parsed objects, not flat scalars. Every
+        format — ``json``/``dotenv`` included — is a masked display rendering,
+        not a re-loadable export of the raw file.
         """
-        return _display.mask_if_secret(key, value, self._sensitive_keywords)
+        return _collapse_container(super()._display_value(value))
 
-    def render(self, *, fmt: str | None = None, mask: bool = True) -> str:
-        """
-        Render the configuration as a string in the requested format.
-
-        Parsed list/dict attributes are collapsed to ``[N items]`` / ``{N keys}``
-        (the YAML loader holds arbitrary parsed objects, not flat scalars). Every
-        format — ``json``/``dotenv`` included — is a masked display rendering, not
-        a re-loadable export of the raw file.
-
-        Args:
-            fmt: One of ``configplusplus.DISPLAY_FORMATS``
-                (``"boxed"``, ``"table"``, ``"json"``, ``"dotenv"``, ``"flat"``).
-                Defaults to the instance ``_display_format`` (``"boxed"``).
-            mask: When True (default), sensitive values are masked — keep it True
-                for anything that may be logged. Pass False only for a raw dump.
-
-        Returns:
-            The formatted configuration string.
-
-        Raises:
-            ValueError: If ``fmt`` is not a known display format.
-        """
-        chosen = fmt if fmt is not None else self._display_format
-        items = [
-            (
-                key,
-                _collapse_container(
-                    _display.format_value(
-                        self._mask_if_secret(key, value) if mask else value
-                    )
-                ),
-            )
-            for key, value in self.to_dict().items()
-        ]
-        return _display.render(
-            self.__class__.__name__,
-            items,
-            fmt=chosen,
-            subtitle=f"Config Path: {self.config_path}",
-            grouped=False,
-            empty_marker="(No configuration loaded)",
-        )
-
-    def __repr__(self) -> str:
-        """Pretty representation of the configuration in its ``_display_format``."""
-        return self.render()
-
-    def __str__(self) -> str:
-        """String representation uses the pretty repr."""
-        return self.render()
+    def _display_layout(self) -> dict[str, Any]:
+        """Show the file path as subtitle, flat rows, and an empty-config marker."""
+        return {
+            "subtitle": f"Config Path: {self.config_path}",
+            "grouped": False,
+            "empty_marker": "(No configuration loaded)",
+        }
