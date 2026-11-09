@@ -149,3 +149,13 @@ def test_mixin_defaults_mask_and_render_from_collected_items():
     assert "_MINIMALDISPLAY" in out
     assert "abcdefghij" not in out
     assert str(config) == repr(config) == config.render(fmt="boxed")
+
+
+def test_loaders_bind_the_display_engine_directly():
+    """R-05: the loaders import the engine by name, not through the facade."""
+    from configplusplus import base, yaml_loader
+
+    assert base.ConfigDisplayMixin is _display.ConfigDisplayMixin
+    assert base._group_by_prefix is _display._group_by_prefix
+    assert base.DEFAULT_SENSITIVE_KEYWORDS is _display.DEFAULT_SENSITIVE_KEYWORDS
+    assert yaml_loader.ConfigDisplayMixin is _display.ConfigDisplayMixin
