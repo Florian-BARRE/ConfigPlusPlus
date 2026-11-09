@@ -1,4 +1,4 @@
-"""Tests for the utils module: safe_load_envs, env and env_optional."""
+"""Tests for the env module: safe_load_envs, env and env_optional."""
 
 import os
 import pathlib
@@ -7,7 +7,7 @@ import sys
 import pytest
 
 from configplusplus import env, env_list, safe_load_envs
-from configplusplus.utils import env_optional
+from configplusplus.env import env_optional
 
 
 @pytest.fixture(autouse=True)
