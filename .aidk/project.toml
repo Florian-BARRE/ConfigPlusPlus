@@ -39,7 +39,7 @@ def run(*cmd):
     subprocess.run(cmd, check=True)
 with tempfile.TemporaryDirectory() as tmp:
     dist, smoke = os.path.join(tmp, "dist"), os.path.join(tmp, "smoke")
-    run("uv", "build", "--output", dist)
+    run("uv", "build", "--out-dir", dist)
     run("uvx", "twine", "check", *glob.glob(os.path.join(dist, "*")))
     run(sys.executable, "-m", "venv", smoke)
     py = os.path.join(smoke, "Scripts" if os.name == "nt" else "bin", "python")
