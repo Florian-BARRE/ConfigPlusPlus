@@ -128,9 +128,13 @@ def env(
 
     try:
         return cast(val)
-    except (ValueError, TypeError) as exc:
+    except (ValueError, TypeError):
         cast_name = getattr(cast, "__name__", repr(cast))
-        raise RuntimeError(f"env var {key} could not be cast with {cast_name}") from exc
+        # ``from None``: chaining the cast error would print its text in the
+        # traceback, and for int/float it re-quotes the raw value (BUG-03).
+        raise RuntimeError(
+            f"env var {key} could not be cast with {cast_name}"
+        ) from None
 
 
 def env_optional(key: str, *, default: Any = None, cast: type = str) -> Any:
@@ -201,11 +205,12 @@ def env_list(
             continue
         try:
             result.append(cast(item))
-        except (ValueError, TypeError) as exc:
+        except (ValueError, TypeError):
             cast_name = getattr(cast, "__name__", repr(cast))
-            # Never embed the raw item nor ``exc``: either would surface a
-            # sensitive value in clear (same rule as ``env``, BUG-01 / BUG-02).
+            # Never embed the raw item nor the cast error, in the message or
+            # chained as the cause: either would surface a sensitive value in
+            # clear (same rule as ``env``, BUG-01 / BUG-02 / BUG-03).
             raise RuntimeError(
                 f"env var {key} could not be cast with {cast_name}"
-            ) from exc
+            ) from None
     return result

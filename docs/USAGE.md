@@ -622,8 +622,10 @@ Solution: Set the variable in your environment or .env file
 
 **Issue: Type casting error**
 ```python
-ValueError: invalid literal for int() with base 10: 'abc'
+RuntimeError: env var PORT could not be cast with int
 ```
+The error names only the variable and the expected type: the raw value and the underlying cast error are never shown (not in the message, not in the traceback).
+
 Solution: Ensure the environment variable contains a valid value for the type
 
 **Issue: YAML file not found**
